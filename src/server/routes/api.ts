@@ -6,12 +6,14 @@ import type {
   InitResponse,
   LoadNotesResponse,
   LoadWarningsResponse,
+  UserProfileResponse,
   SaveNotesRequest,
   SaveNotesResponse,
   SaveWarningsRequest,
   SaveWarningsResponse,
 } from '../../shared/api';
 import { loadNotes, loadWarnings, saveNotes, saveWarnings } from '../core/storage';
+import { fetchUserProfile } from '../core/redditProfile';
 
 type ErrorResponse = {
   status: 'error';
@@ -19,6 +21,37 @@ type ErrorResponse = {
 };
 
 export const api = new Hono();
+
+api.get('/user-profile', async (c) => {
+  const username = c.req.query('username')?.trim();
+  if (!username) {
+    return c.json<ErrorResponse>(
+      {
+        status: 'error',
+        message: 'username is required',
+      },
+      400
+    );
+  }
+
+  try {
+    const profile = await fetchUserProfile(username, 5);
+    return c.json<UserProfileResponse>({
+      type: 'user_profile',
+      profile,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to load user profile';
+    return c.json<ErrorResponse>(
+      {
+        status: 'error',
+        message,
+      },
+      message === 'User not found' ? 404 : 500
+    );
+  }
+});
 
 api.get('/warnings', async (c) => {
   const { postId } = context;
@@ -60,6 +93,25 @@ api.post('/warnings', async (c) => {
   });
 });
 
+api.delete('/warnings', async (c) => {
+  const { postId } = context;
+  if (!postId) {
+    return c.json<ErrorResponse>(
+      {
+        status: 'error',
+        message: 'postId is required',
+      },
+      400
+    );
+  }
+
+  const warnings = await saveWarnings(postId, []);
+  return c.json<SaveWarningsResponse>({
+    type: 'warnings_saved',
+    warnings,
+  });
+});
+
 api.get('/notes', async (c) => {
   const { postId } = context;
   if (!postId) {
@@ -94,6 +146,25 @@ api.post('/notes', async (c) => {
   const body = await c.req.json<SaveNotesRequest>();
   const notes = await saveNotes(postId, body.notes ?? []);
 
+  return c.json<SaveNotesResponse>({
+    type: 'notes_saved',
+    notes,
+  });
+});
+
+api.delete('/notes', async (c) => {
+  const { postId } = context;
+  if (!postId) {
+    return c.json<ErrorResponse>(
+      {
+        status: 'error',
+        message: 'postId is required',
+      },
+      400
+    );
+  }
+
+  const notes = await saveNotes(postId, []);
   return c.json<SaveNotesResponse>({
     type: 'notes_saved',
     notes,

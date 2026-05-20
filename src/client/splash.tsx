@@ -1,14 +1,17 @@
 import './index.css';
 
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useEffect, useState, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import type {
+  RiskLevel,
   LoadNotesResponse,
   LoadWarningsResponse,
   NoteEntry,
   SaveNotesRequest,
   SaveWarningsRequest,
   Severity,
+  UserProfile,
+  UserProfileResponse,
   WarningEntry,
 } from '../shared/api';
 
@@ -93,6 +96,53 @@ const saveNotesToApi = async (notes: NoteEntry[]) => {
   });
 };
 
+const clearWarningsFromApi = async () => {
+  await fetch('/api/warnings', { method: 'DELETE' });
+};
+
+const clearNotesFromApi = async () => {
+  await fetch('/api/notes', { method: 'DELETE' });
+};
+
+const loadUserProfileFromApi = async (username: string) => {
+  const response = await fetch(
+    `/api/user-profile?username=${encodeURIComponent(username)}`
+  );
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    const message =
+      typeof errorBody?.message === 'string'
+        ? errorBody.message
+        : 'Failed to load user profile';
+    throw new Error(message);
+  }
+  const data = (await response.json()) as UserProfileResponse;
+  return data.profile;
+};
+
+const riskBadgeStyles: Record<RiskLevel, string> = {
+  Low: 'bg-green-500/20 text-green-300 border-green-500/40',
+  Medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+  High: 'bg-red-500/20 text-red-300 border-red-500/40',
+};
+
+const getAccountAgeLabel = (createdAt: string) => {
+  const createdTime = new Date(createdAt).getTime();
+  const days = Math.max(
+    0,
+    Math.floor((Date.now() - createdTime) / (1000 * 60 * 60 * 24))
+  );
+  const years = Math.floor(days / 365);
+  const remainingDays = days % 365;
+  if (years > 0) {
+    return `${years}y ${remainingDays}d`;
+  }
+  return `${remainingDays}d`;
+};
+
+const formatTimestamp = (value: string) =>
+  new Date(value).toLocaleString();
+
 const getEscalationStatus = (warningsCount: number) => {
   if (warningsCount >= 5) {
     return {
@@ -152,12 +202,19 @@ export const Splash = () => {
   const [noteInput, setNoteInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [usernameInput, setUsernameInput] = useState('');
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const warningsCount = warnings.length;
   const lastWarning = warnings[0];
   const escalationStatus = getEscalationStatus(warningsCount);
   const riskStatus = getRiskStatus(warnings);
   const timelineItems = getTimelineItems(warnings, notes);
+  const displayUsername = profile ? `u/${profile.username}` : 'Search a username';
+  const accountAge = profile ? getAccountAgeLabel(profile.createdAt) : 'N/A';
+  const totalKarma = profile ? profile.totalKarma : 0;
 
   useEffect(() => {
     let isMounted = true;
@@ -238,6 +295,43 @@ export const Splash = () => {
     setReasonInput(preset);
   };
 
+  const handleClearCaseData = async () => {
+    const confirmed = window.confirm(
+      'Clear all warnings and moderator notes for this case? This cannot be undone.'
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setWarnings([]);
+    setNotes([]);
+
+    await Promise.all([clearWarningsFromApi(), clearNotesFromApi()]);
+  };
+
+  const handleProfileSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = usernameInput.trim();
+    if (!trimmed) {
+      setProfileError('Enter a username to search.');
+      return;
+    }
+
+    setProfileLoading(true);
+    setProfileError(null);
+
+    try {
+      const loadedProfile = await loadUserProfileFromApi(trimmed);
+      setProfile(loadedProfile);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to load user profile';
+      setProfileError(message);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black text-white p-6">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -248,16 +342,175 @@ export const Splash = () => {
           </p>
         </div>
 
-        <div className="space-y-2">
-          <div
-            className={`border rounded-2xl px-4 py-3 ${escalationStatus.style}`}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
+          <div>
+            <h2 className="text-2xl font-semibold">Moderation Profile</h2>
+            <p className="text-sm text-zinc-400">
+              Search a Reddit user to load account history and risk analysis.
+            </p>
+          </div>
+
+          <form
+            className="flex flex-col sm:flex-row gap-3"
+            onSubmit={handleProfileSearch}
           >
-            <span className="text-sm uppercase tracking-wide text-zinc-300">
-              Escalation Status
-            </span>
-            <div className="text-lg font-semibold">
-              {escalationStatus.label}
+            <input
+              className="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter username (without u/)"
+              value={usernameInput}
+              onChange={(event) => setUsernameInput(event.target.value)}
+            />
+            <button
+              className="bg-blue-500 px-4 py-2 rounded-xl font-semibold hover:bg-blue-600 transition"
+              type="submit"
+              disabled={profileLoading}
+            >
+              {profileLoading ? 'Loading...' : 'Search'}
+            </button>
+          </form>
+
+          {profileError ? (
+            <p className="text-sm text-red-300">{profileError}</p>
+          ) : null}
+
+          {profile ? (
+            <div className="space-y-6">
+              <div className="grid gap-4 lg:grid-cols-3">
+                <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
+                  <p className="text-sm text-zinc-400">Username</p>
+                  <p className="text-lg font-semibold">u/{profile.username}</p>
+                </div>
+                <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
+                  <p className="text-sm text-zinc-400">Account Age</p>
+                  <p className="text-lg font-semibold">
+                    {getAccountAgeLabel(profile.createdAt)}
+                  </p>
+                </div>
+                <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
+                  <p className="text-sm text-zinc-400">Total Karma</p>
+                  <p className="text-lg font-semibold">{profile.totalKarma}</p>
+                  <p className="text-xs text-zinc-400">
+                    Link {profile.linkKarma} · Comment {profile.commentKarma}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+                <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 space-y-3">
+                  <h3 className="text-lg font-semibold">Risk Analysis</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs border ${
+                        riskBadgeStyles[profile.risk.spamRisk]
+                      }`}
+                    >
+                      Spam Risk: {profile.risk.spamRisk}
+                    </span>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs border ${
+                        riskBadgeStyles[profile.risk.harassmentRisk]
+                      }`}
+                    >
+                      Harassment Risk: {profile.risk.harassmentRisk}
+                    </span>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs border ${
+                        profile.risk.banRecommendation === 'Permanent'
+                          ? 'bg-red-500/20 text-red-200 border-red-500/40'
+                          : profile.risk.banRecommendation === 'Temporary'
+                          ? 'bg-yellow-500/20 text-yellow-200 border-yellow-500/40'
+                          : 'bg-zinc-700/30 text-zinc-200 border-zinc-600'
+                      }`}
+                    >
+                      Ban: {profile.risk.banRecommendation}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm text-zinc-300 mb-2">
+                      Suspicious patterns
+                    </p>
+                    {profile.risk.suspiciousPatterns.length === 0 ? (
+                      <p className="text-sm text-zinc-400">
+                        No suspicious patterns detected.
+                      </p>
+                    ) : (
+                      <ul className="space-y-1 text-sm text-zinc-200">
+                        {profile.risk.suspiciousPatterns.map((pattern) => (
+                          <li key={pattern}>{pattern}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 space-y-3">
+                  <h3 className="text-lg font-semibold">Recent Posts</h3>
+                  {profile.recentPosts.length === 0 ? (
+                    <p className="text-sm text-zinc-400">No recent posts found.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {profile.recentPosts.map((post) => (
+                        <li key={post.id} className="border border-zinc-700 rounded-lg p-3">
+                          <p className="text-sm font-semibold">{post.title}</p>
+                          <p className="text-xs text-zinc-400">
+                            r/{post.subredditName} · {formatTimestamp(post.createdAt)}
+                          </p>
+                          <p className="text-xs text-zinc-400">Score: {post.score}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 space-y-3">
+                <h3 className="text-lg font-semibold">Recent Comments</h3>
+                {profile.recentComments.length === 0 ? (
+                  <p className="text-sm text-zinc-400">No recent comments found.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {profile.recentComments.map((comment) => (
+                      <li key={comment.id} className="border border-zinc-700 rounded-lg p-3">
+                        <p className="text-sm">
+                          {comment.body.length > 160
+                            ? `${comment.body.slice(0, 160)}...`
+                            : comment.body}
+                        </p>
+                        <p className="text-xs text-zinc-400">
+                          r/{comment.subredditName} · {formatTimestamp(comment.createdAt)}
+                        </p>
+                        <p className="text-xs text-zinc-400">Score: {comment.score}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
+          ) : (
+            <p className="text-sm text-zinc-500">
+              No profile loaded yet. Search a username to begin.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              className={`border rounded-2xl px-4 py-3 ${escalationStatus.style}`}
+            >
+              <span className="text-sm uppercase tracking-wide text-zinc-300">
+                Escalation Status
+              </span>
+              <div className="text-lg font-semibold">
+                {escalationStatus.label}
+              </div>
+            </div>
+            <button
+              className="bg-red-600/80 border border-red-500 text-white px-4 py-2 rounded-xl font-semibold hover:bg-red-600 transition"
+              onClick={handleClearCaseData}
+            >
+              Clear All Case Data
+            </button>
           </div>
           {isLoading ? (
             <p className="text-sm text-zinc-400">Loading saved data...</p>
@@ -274,11 +527,13 @@ export const Splash = () => {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="bg-zinc-950/60 border border-zinc-800 rounded-xl p-4">
                   <p className="text-sm text-zinc-400">Username</p>
-                  <p className="text-lg font-semibold">bad_user123</p>
+                  <p className="text-lg font-semibold">{displayUsername}</p>
+                  <p className="text-xs text-zinc-400">Account Age: {accountAge}</p>
                 </div>
                 <div className="bg-zinc-950/60 border border-zinc-800 rounded-xl p-4">
                   <p className="text-sm text-zinc-400">Warnings</p>
                   <p className="text-lg font-semibold">{warningsCount}</p>
+                  <p className="text-xs text-zinc-400">Total Karma: {totalKarma}</p>
                 </div>
                 <div className="bg-zinc-950/60 border border-zinc-800 rounded-xl p-4 sm:col-span-2">
                   <p className="text-sm text-zinc-400">Last Warning</p>
