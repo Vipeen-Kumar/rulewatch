@@ -1,22 +1,16 @@
 import './index.css';
 
-import { StrictMode, useState } from 'react';
+import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-
-type Severity = 'Low' | 'Medium' | 'High';
-
-type WarningEntry = {
-  reason: string;
-  timestamp: string;
-  moderator: string;
-  severity: Severity;
-};
-
-type NoteEntry = {
-  note: string;
-  timestamp: string;
-  moderator: string;
-};
+import type {
+  LoadNotesResponse,
+  LoadWarningsResponse,
+  NoteEntry,
+  SaveNotesRequest,
+  SaveWarningsRequest,
+  Severity,
+  WarningEntry,
+} from '../shared/api';
 
 type TimelineItem =
   | (WarningEntry & { type: 'warning' })
@@ -62,6 +56,42 @@ const initialNotes: NoteEntry[] = [
     moderator: moderatorName,
   },
 ];
+
+const loadWarningsFromApi = async () => {
+  const response = await fetch('/api/warnings');
+  if (!response.ok) {
+    throw new Error('Failed to load warnings');
+  }
+  const data = (await response.json()) as LoadWarningsResponse;
+  return data.warnings ?? [];
+};
+
+const saveWarningsToApi = async (warnings: WarningEntry[]) => {
+  const payload: SaveWarningsRequest = { warnings };
+  await fetch('/api/warnings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+};
+
+const loadNotesFromApi = async () => {
+  const response = await fetch('/api/notes');
+  if (!response.ok) {
+    throw new Error('Failed to load notes');
+  }
+  const data = (await response.json()) as LoadNotesResponse;
+  return data.notes ?? [];
+};
+
+const saveNotesToApi = async (notes: NoteEntry[]) => {
+  const payload: SaveNotesRequest = { notes };
+  await fetch('/api/notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+};
 
 const getEscalationStatus = (warningsCount: number) => {
   if (warningsCount >= 5) {
@@ -120,12 +150,50 @@ export const Splash = () => {
   const [selectedSeverity, setSelectedSeverity] = useState<Severity>('Medium');
   const [notes, setNotes] = useState<NoteEntry[]>(initialNotes);
   const [noteInput, setNoteInput] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const warningsCount = warnings.length;
   const lastWarning = warnings[0];
   const escalationStatus = getEscalationStatus(warningsCount);
   const riskStatus = getRiskStatus(warnings);
   const timelineItems = getTimelineItems(warnings, notes);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        const [savedWarnings, savedNotes] = await Promise.all([
+          loadWarningsFromApi(),
+          loadNotesFromApi(),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setWarnings(savedWarnings);
+        setNotes(savedNotes);
+      } catch (error) {
+        if (isMounted) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to load data';
+          setLoadError(message);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleWarnUser = () => {
     const trimmedReason = reasonInput.trim();
@@ -138,7 +206,11 @@ export const Splash = () => {
       severity: selectedSeverity,
     };
 
-    setWarnings((prev) => [newWarning, ...prev]);
+    setWarnings((prev) => {
+      const updatedWarnings = [newWarning, ...prev];
+      void saveWarningsToApi(updatedWarnings);
+      return updatedWarnings;
+    });
     setReasonInput('');
   };
 
@@ -154,7 +226,11 @@ export const Splash = () => {
       moderator: moderatorName,
     };
 
-    setNotes((prev) => [newNote, ...prev]);
+    setNotes((prev) => {
+      const updatedNotes = [newNote, ...prev];
+      void saveNotesToApi(updatedNotes);
+      return updatedNotes;
+    });
     setNoteInput('');
   };
 
@@ -172,15 +248,23 @@ export const Splash = () => {
           </p>
         </div>
 
-        <div
-          className={`border rounded-2xl px-4 py-3 ${escalationStatus.style}`}
-        >
-          <span className="text-sm uppercase tracking-wide text-zinc-300">
-            Escalation Status
-          </span>
-          <div className="text-lg font-semibold">
-            {escalationStatus.label}
+        <div className="space-y-2">
+          <div
+            className={`border rounded-2xl px-4 py-3 ${escalationStatus.style}`}
+          >
+            <span className="text-sm uppercase tracking-wide text-zinc-300">
+              Escalation Status
+            </span>
+            <div className="text-lg font-semibold">
+              {escalationStatus.label}
+            </div>
           </div>
+          {isLoading ? (
+            <p className="text-sm text-zinc-400">Loading saved data...</p>
+          ) : null}
+          {!isLoading && loadError ? (
+            <p className="text-sm text-red-300">{loadError}</p>
+          ) : null}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
