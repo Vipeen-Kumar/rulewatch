@@ -37,35 +37,15 @@ const presetReasons = [
   'NSFW Violation',
 ];
 
-const initialWarnings: WarningEntry[] = [
-  {
-    reason: 'Spam Links',
-    timestamp: 'May 19, 2026 10:42 AM',
-    moderator: moderatorName,
-    severity: 'Medium',
-  },
-  {
-    reason: 'Harassment',
-    timestamp: 'May 20, 2026 08:15 AM',
-    moderator: moderatorName,
-    severity: 'High',
-  },
-];
-
-const initialNotes: NoteEntry[] = [
-  {
-    note: 'Reached out via modmail for clarification.',
-    timestamp: 'May 20, 2026 09:05 AM',
-    moderator: moderatorName,
-  },
-];
 
 const loadWarningsFromApi = async () => {
+  console.log('[RuleWatch] Loading warnings from API');
   const response = await fetch('/api/warnings');
   if (!response.ok) {
     throw new Error('Failed to load warnings');
   }
   const data = (await response.json()) as LoadWarningsResponse;
+  console.log('[RuleWatch] Loaded warnings count', data.warnings?.length ?? 0);
   return data.warnings ?? [];
 };
 
@@ -79,11 +59,13 @@ const saveWarningsToApi = async (warnings: WarningEntry[]) => {
 };
 
 const loadNotesFromApi = async () => {
+  console.log('[RuleWatch] Loading notes from API');
   const response = await fetch('/api/notes');
   if (!response.ok) {
     throw new Error('Failed to load notes');
   }
   const data = (await response.json()) as LoadNotesResponse;
+  console.log('[RuleWatch] Loaded notes count', data.notes?.length ?? 0);
   return data.notes ?? [];
 };
 
@@ -97,11 +79,19 @@ const saveNotesToApi = async (notes: NoteEntry[]) => {
 };
 
 const clearWarningsFromApi = async () => {
-  await fetch('/api/warnings', { method: 'DELETE' });
+  console.log('[RuleWatch] Clearing warnings via API');
+  const response = await fetch('/api/warnings', { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error('Failed to clear warnings');
+  }
 };
 
 const clearNotesFromApi = async () => {
-  await fetch('/api/notes', { method: 'DELETE' });
+  console.log('[RuleWatch] Clearing notes via API');
+  const response = await fetch('/api/notes', { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error('Failed to clear notes');
+  }
 };
 
 const loadUserProfileFromApi = async (username: string) => {
@@ -195,10 +185,10 @@ const getTimelineItems = (warnings: WarningEntry[], notes: NoteEntry[]) => {
 };
 
 export const Splash = () => {
-  const [warnings, setWarnings] = useState<WarningEntry[]>(initialWarnings);
+  const [warnings, setWarnings] = useState<WarningEntry[]>([]);
   const [reasonInput, setReasonInput] = useState('');
   const [selectedSeverity, setSelectedSeverity] = useState<Severity>('Medium');
-  const [notes, setNotes] = useState<NoteEntry[]>(initialNotes);
+  const [notes, setNotes] = useState<NoteEntry[]>([]);
   const [noteInput, setNoteInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -206,6 +196,9 @@ export const Splash = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
+  const [clearSuccess, setClearSuccess] = useState<string | null>(null);
 
   const warningsCount = warnings.length;
   const lastWarning = warnings[0];
@@ -296,17 +289,25 @@ export const Splash = () => {
   };
 
   const handleClearCaseData = async () => {
-    const confirmed = window.confirm(
-      'Clear all warnings and moderator notes for this case? This cannot be undone.'
-    );
-    if (!confirmed) {
-      return;
+    setIsClearing(true);
+    setClearError(null);
+    setClearSuccess(null);
+    console.log('[RuleWatch] Clear case data started');
+
+    try {
+      await Promise.all([clearWarningsFromApi(), clearNotesFromApi()]);
+      setWarnings([]);
+      setNotes([]);
+      setClearSuccess('Case data cleared successfully');
+      console.log('[RuleWatch] Clear case data completed');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to clear case data';
+      setClearError(message);
+      console.error('[RuleWatch] Clear case data failed', error);
+    } finally {
+      setIsClearing(false);
     }
-
-    setWarnings([]);
-    setNotes([]);
-
-    await Promise.all([clearWarningsFromApi(), clearNotesFromApi()]);
   };
 
   const handleProfileSearch = async (event: FormEvent<HTMLFormElement>) => {
@@ -508,10 +509,17 @@ export const Splash = () => {
             <button
               className="bg-red-600/80 border border-red-500 text-white px-4 py-2 rounded-xl font-semibold hover:bg-red-600 transition"
               onClick={handleClearCaseData}
+              disabled={isClearing}
             >
-              Clear All Case Data
+              {isClearing ? 'Clearing...' : 'Clear All Case Data'}
             </button>
           </div>
+          {clearSuccess ? (
+            <p className="text-sm text-green-300">{clearSuccess}</p>
+          ) : null}
+          {clearError ? (
+            <p className="text-sm text-red-300">{clearError}</p>
+          ) : null}
           {isLoading ? (
             <p className="text-sm text-zinc-400">Loading saved data...</p>
           ) : null}

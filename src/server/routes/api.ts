@@ -105,7 +105,9 @@ api.delete('/warnings', async (c) => {
     );
   }
 
+  console.log(`[RuleWatch] DELETE /warnings for post ${postId}`);
   const warnings = await saveWarnings(postId, []);
+  console.log(`[RuleWatch] Warnings cleared for post ${postId}`);
   return c.json<SaveWarningsResponse>({
     type: 'warnings_saved',
     warnings,
@@ -164,7 +166,9 @@ api.delete('/notes', async (c) => {
     );
   }
 
+  console.log(`[RuleWatch] DELETE /notes for post ${postId}`);
   const notes = await saveNotes(postId, []);
+  console.log(`[RuleWatch] Notes cleared for post ${postId}`);
   return c.json<SaveNotesResponse>({
     type: 'notes_saved',
     notes,
