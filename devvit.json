@@ -17,20 +17,37 @@
     "dir": "dist/server",
     "entry": "index.cjs"
   },
+  "permissions": {
+    "redis": true,
+    "http": {
+      "enable": true,
+      "domains": []
+    }
+  },
   "menu": {
     "items": [
       {
+        "label": "Open RuleWatch",
+        "description": "Open RuleWatch for this post",
+        "location": ["post"],
+        "forUserType": "moderator",
+        "postFilter": "none",
+        "endpoint": "/internal/menu/open-rulewatch"
+      },
+      {
         "label": "Create a new post",
         "description": "rulewatch",
-        "location": "subreddit",
+        "location": ["subreddit"],
         "forUserType": "moderator",
+        "postFilter": "none",
         "endpoint": "/internal/menu/post-create"
       },
       {
         "label": "Example form",
         "description": "Show a simple form",
-        "location": "subreddit",
+        "location": ["subreddit"],
         "forUserType": "moderator",
+        "postFilter": "none",
         "endpoint": "/internal/menu/example-form"
       }
     ]
@@ -39,7 +56,8 @@
     "exampleForm": "/internal/form/example-submit"
   },
   "triggers": {
-    "onAppInstall": "/internal/triggers/on-app-install"
+    "onAppInstall": "/internal/triggers/on-app-install",
+    "onPostCreate": "/internal/triggers/on-post-create"
   },
   "scripts": {
     "dev": "vite build --watch",

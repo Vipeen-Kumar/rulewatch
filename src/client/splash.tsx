@@ -3,21 +3,30 @@ import './index.css';
 import { StrictMode, useEffect, useState, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import type {
-  RiskLevel,
+  AppendTimelineRequest,
+  CaseStatus,
   LoadNotesResponse,
+  LoadCaseStatusResponse,
+  LoadScanResultResponse,
+  LoadTimelineResponse,
   LoadWarningsResponse,
   NoteEntry,
+  PostScanResult,
+  SaveCaseStatusRequest,
   SaveNotesRequest,
   SaveWarningsRequest,
   Severity,
+  TargetPostResponse,
+  TimelineEvent,
   UserProfile,
   UserProfileResponse,
   WarningEntry,
 } from '../shared/api';
-
-type TimelineItem =
-  | (WarningEntry & { type: 'warning' })
-  | (NoteEntry & { type: 'note' });
+import { ModAssistant, createModSummary } from './components/ModAssistant';
+import { ProfileSearch } from './components/ProfileSearch';
+import { Timeline } from './components/Timeline';
+import { UserOverview } from './components/UserOverview';
+import { WarningHistory } from './components/WarningHistory';
 
 const moderatorName = 'u/VipeenKumar';
 
@@ -37,10 +46,18 @@ const presetReasons = [
   'NSFW Violation',
 ];
 
+const buildApiUrl = (path: string, targetPostId?: string | null) => {
+  if (!targetPostId) {
+    return path;
+  }
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}targetPostId=${encodeURIComponent(targetPostId)}`;
+};
 
-const loadWarningsFromApi = async () => {
+
+const loadWarningsFromApi = async (targetPostId?: string | null) => {
   console.log('[RuleWatch] Loading warnings from API');
-  const response = await fetch('/api/warnings');
+  const response = await fetch(buildApiUrl('/api/warnings', targetPostId));
   if (!response.ok) {
     throw new Error('Failed to load warnings');
   }
@@ -49,18 +66,21 @@ const loadWarningsFromApi = async () => {
   return data.warnings ?? [];
 };
 
-const saveWarningsToApi = async (warnings: WarningEntry[]) => {
+const saveWarningsToApi = async (
+  warnings: WarningEntry[],
+  targetPostId?: string | null
+) => {
   const payload: SaveWarningsRequest = { warnings };
-  await fetch('/api/warnings', {
+  await fetch(buildApiUrl('/api/warnings', targetPostId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 };
 
-const loadNotesFromApi = async () => {
+const loadNotesFromApi = async (targetPostId?: string | null) => {
   console.log('[RuleWatch] Loading notes from API');
-  const response = await fetch('/api/notes');
+  const response = await fetch(buildApiUrl('/api/notes', targetPostId));
   if (!response.ok) {
     throw new Error('Failed to load notes');
   }
@@ -69,34 +89,121 @@ const loadNotesFromApi = async () => {
   return data.notes ?? [];
 };
 
-const saveNotesToApi = async (notes: NoteEntry[]) => {
+const saveNotesToApi = async (notes: NoteEntry[], targetPostId?: string | null) => {
   const payload: SaveNotesRequest = { notes };
-  await fetch('/api/notes', {
+  await fetch(buildApiUrl('/api/notes', targetPostId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 };
 
-const clearWarningsFromApi = async () => {
+const loadCaseStatusFromApi = async (targetPostId?: string | null) => {
+  const response = await fetch(buildApiUrl('/api/case-status', targetPostId));
+  if (!response.ok) {
+    throw new Error('Failed to load case status');
+  }
+  const data = (await response.json()) as LoadCaseStatusResponse;
+  return data.status;
+};
+
+const saveCaseStatusToApi = async (
+  status: CaseStatus,
+  targetPostId?: string | null
+) => {
+  const payload: SaveCaseStatusRequest = { status };
+  const response = await fetch(buildApiUrl('/api/case-status', targetPostId), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to save case status');
+  }
+};
+
+const loadTimelineFromApi = async (targetPostId?: string | null) => {
+  const response = await fetch(buildApiUrl('/api/timeline', targetPostId));
+  if (!response.ok) {
+    throw new Error('Failed to load timeline');
+  }
+  const data = (await response.json()) as LoadTimelineResponse;
+  return data.events ?? [];
+};
+
+const loadScanResultFromApi = async (targetPostId?: string | null) => {
+  console.log('[RuleWatch] Loading scan result from API');
+  const response = await fetch(buildApiUrl('/api/scan-result', targetPostId));
+  if (response.status === 404) {
+    console.log('[RuleWatch] Scan result not found (404)');
+    return null;
+  }
+  if (!response.ok) {
+    console.error('[RuleWatch] Failed to load scan result', response.status);
+    throw new Error('Failed to load scan result');
+  }
+  const data = (await response.json()) as LoadScanResultResponse;
+  console.log('[RuleWatch] Scan result loaded', data.result?.postId ?? 'unknown');
+  return data.result ?? null;
+};
+
+const runScanNow = async (targetPostId?: string | null) => {
+  const response = await fetch(buildApiUrl('/api/scan-now', targetPostId), {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to run scan');
+  }
+  const data = (await response.json()) as LoadScanResultResponse;
+  return data.result ?? null;
+};
+
+const appendTimelineEventToApi = async (
+  event: TimelineEvent,
+  targetPostId?: string | null
+) => {
+  const payload: AppendTimelineRequest = { event };
+  const response = await fetch(buildApiUrl('/api/timeline', targetPostId), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to append timeline event');
+  }
+};
+
+const clearWarningsFromApi = async (targetPostId?: string | null) => {
   console.log('[RuleWatch] Clearing warnings via API');
-  const response = await fetch('/api/warnings', { method: 'DELETE' });
+  const response = await fetch(buildApiUrl('/api/warnings', targetPostId), {
+    method: 'DELETE',
+  });
   if (!response.ok) {
     throw new Error('Failed to clear warnings');
   }
 };
 
-const clearNotesFromApi = async () => {
+const clearNotesFromApi = async (targetPostId?: string | null) => {
   console.log('[RuleWatch] Clearing notes via API');
-  const response = await fetch('/api/notes', { method: 'DELETE' });
+  const response = await fetch(buildApiUrl('/api/notes', targetPostId), {
+    method: 'DELETE',
+  });
   if (!response.ok) {
     throw new Error('Failed to clear notes');
   }
 };
 
+const normalizeUsername = (value: string) =>
+  value.replace(/^u\//i, '').trim();
+
 const loadUserProfileFromApi = async (username: string) => {
+  const normalized = normalizeUsername(username);
+  console.log('[RuleWatch] loadUserProfileFromApi', {
+    raw: username,
+    normalized,
+  });
   const response = await fetch(
-    `/api/user-profile?username=${encodeURIComponent(username)}`
+    `/api/user-profile?username=${encodeURIComponent(normalized)}`
   );
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
@@ -110,10 +217,18 @@ const loadUserProfileFromApi = async (username: string) => {
   return data.profile;
 };
 
-const riskBadgeStyles: Record<RiskLevel, string> = {
-  Low: 'bg-green-500/20 text-green-300 border-green-500/40',
-  Medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
-  High: 'bg-red-500/20 text-red-300 border-red-500/40',
+const loadTargetPostFromApi = async () => {
+  const response = await fetch('/api/target-post');
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    const message =
+      typeof errorBody?.message === 'string'
+        ? errorBody.message
+        : 'Failed to load target post';
+    throw new Error(message);
+  }
+  const data = (await response.json()) as TargetPostResponse;
+  return data;
 };
 
 const getAccountAgeLabel = (createdAt: string) => {
@@ -168,20 +283,23 @@ const getRiskStatus = (warnings: WarningEntry[]) => {
   return { label: 'High Risk', color: 'bg-red-500', width: 'w-full' };
 };
 
-const getTimelineItems = (warnings: WarningEntry[], notes: NoteEntry[]) => {
-  const warningItems: TimelineItem[] = warnings.map((warning) => ({
-    ...warning,
-    type: 'warning',
-  }));
+const createTimelineEvent = (
+  type: TimelineEvent['type'],
+  message: string,
+  actor: string
+): TimelineEvent => {
+  const id =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-  const noteItems: TimelineItem[] = notes.map((note) => ({
-    ...note,
-    type: 'note',
-  }));
-
-  return [...warningItems, ...noteItems].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+  return {
+    id,
+    type,
+    timestamp: new Date().toLocaleString(),
+    message,
+    actor,
+  };
 };
 
 export const Splash = () => {
@@ -196,15 +314,31 @@ export const Splash = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [autoProfileLoading, setAutoProfileLoading] = useState(true);
+  const [autoProfileError, setAutoProfileError] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const [clearError, setClearError] = useState<string | null>(null);
   const [clearSuccess, setClearSuccess] = useState<string | null>(null);
+  const [caseStatus, setCaseStatus] = useState<CaseStatus>('Open');
+  const [isStatusLoading, setIsStatusLoading] = useState(true);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [modSummary, setModSummary] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<PostScanResult | null>(null);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [targetPostId, setTargetPostId] = useState<string | null>(null);
+  const [targetPostTitle, setTargetPostTitle] = useState('');
+  const [targetPostAuthor, setTargetPostAuthor] = useState('');
+  const [targetPostBody, setTargetPostBody] = useState('');
+  const [targetPostLoading, setTargetPostLoading] = useState(true);
+  const [targetPostError, setTargetPostError] = useState<string | null>(null);
 
   const warningsCount = warnings.length;
   const lastWarning = warnings[0];
   const escalationStatus = getEscalationStatus(warningsCount);
   const riskStatus = getRiskStatus(warnings);
-  const timelineItems = getTimelineItems(warnings, notes);
   const displayUsername = profile ? `u/${profile.username}` : 'Search a username';
   const accountAge = profile ? getAccountAgeLabel(profile.createdAt) : 'N/A';
   const totalKarma = profile ? profile.totalKarma : 0;
@@ -212,12 +346,15 @@ export const Splash = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const loadData = async () => {
+    const loadCaseData = async (activePostId?: string | null) => {
       try {
-        const [savedWarnings, savedNotes] = await Promise.all([
-          loadWarningsFromApi(),
-          loadNotesFromApi(),
-        ]);
+        const [savedWarnings, savedNotes, savedStatus, savedTimeline] =
+          await Promise.all([
+            loadWarningsFromApi(activePostId),
+            loadNotesFromApi(activePostId),
+            loadCaseStatusFromApi(activePostId),
+            loadTimelineFromApi(activePostId),
+          ]);
 
         if (!isMounted) {
           return;
@@ -225,25 +362,106 @@ export const Splash = () => {
 
         setWarnings(savedWarnings);
         setNotes(savedNotes);
+        setCaseStatus(savedStatus);
+        setTimelineEvents(savedTimeline);
       } catch (error) {
         if (isMounted) {
           const message =
             error instanceof Error ? error.message : 'Failed to load data';
           setLoadError(message);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
+          setStatusError(message);
+          setTimelineError(message);
         }
       }
     };
 
-    loadData();
+    const loadDashboard = async () => {
+      setTargetPostLoading(true);
+      setAutoProfileLoading(true);
+      setAutoProfileError(null);
+      setTargetPostError(null);
+      setScanError(null);
+      setScanLoading(true);
+
+      try {
+        const target = await loadTargetPostFromApi();
+        if (!isMounted) {
+          return;
+        }
+        const author = normalizeUsername(target.author ?? '');
+        setTargetPostId(target.postId);
+        setTargetPostTitle(target.title);
+        setTargetPostAuthor(author);
+        setTargetPostBody(target.body);
+        if (author) {
+          setUsernameInput(author);
+        }
+
+        await loadCaseData(target.postId);
+
+        if (author) {
+          const loadedProfile = await loadUserProfileFromApi(author);
+          if (isMounted) {
+            setProfile(loadedProfile);
+          }
+        } else if (isMounted) {
+          setAutoProfileError('Current author not found');
+        }
+
+        let scan = await loadScanResultFromApi(target.postId);
+        if (!scan) {
+          scan = await runScanNow(target.postId);
+        }
+        if (isMounted) {
+          setScanResult(scan);
+        }
+      } catch (error) {
+        if (isMounted) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to auto-load post data';
+          setTargetPostError(message);
+          setAutoProfileError('Auto-load failed. Use manual search to continue.');
+        }
+
+        await loadCaseData(null);
+
+        try {
+          const scan = await loadScanResultFromApi(null);
+          if (isMounted) {
+            setScanResult(scan);
+          }
+        } catch (scanError) {
+          if (isMounted) {
+            const message =
+              scanError instanceof Error ? scanError.message : 'Failed to load scan result';
+            setScanError(message);
+          }
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+          setIsStatusLoading(false);
+          setTargetPostLoading(false);
+          setAutoProfileLoading(false);
+          setScanLoading(false);
+        }
+      }
+    };
+
+    loadDashboard();
 
     return () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!profile || modSummary || autoProfileLoading) {
+      return;
+    }
+    const summary = createModSummary(warnings, notes, profile);
+    setModSummary(summary);
+  }, [autoProfileLoading, modSummary, notes, profile, warnings]);
 
   const handleWarnUser = () => {
     const trimmedReason = reasonInput.trim();
@@ -258,9 +476,14 @@ export const Splash = () => {
 
     setWarnings((prev) => {
       const updatedWarnings = [newWarning, ...prev];
-      void saveWarningsToApi(updatedWarnings);
+      void saveWarningsToApi(updatedWarnings, targetPostId);
       return updatedWarnings;
     });
+    addTimelineEvent(
+      'warning_added',
+      `Warning issued: ${reason} (${selectedSeverity})`,
+      moderatorName
+    );
     setReasonInput('');
   };
 
@@ -278,14 +501,28 @@ export const Splash = () => {
 
     setNotes((prev) => {
       const updatedNotes = [newNote, ...prev];
-      void saveNotesToApi(updatedNotes);
+      void saveNotesToApi(updatedNotes, targetPostId);
       return updatedNotes;
     });
+    addTimelineEvent('note_added', 'Moderator note added.', moderatorName);
     setNoteInput('');
   };
 
   const handlePresetClick = (preset: string) => {
     setReasonInput(preset);
+  };
+
+  const addTimelineEvent = (
+    type: TimelineEvent['type'],
+    message: string,
+    actor: string
+  ) => {
+    const event = createTimelineEvent(type, message, actor);
+    setTimelineEvents((prev) => {
+      const updated = [event, ...prev];
+      void appendTimelineEventToApi(event, targetPostId);
+      return updated;
+    });
   };
 
   const handleClearCaseData = async () => {
@@ -295,10 +532,14 @@ export const Splash = () => {
     console.log('[RuleWatch] Clear case data started');
 
     try {
-      await Promise.all([clearWarningsFromApi(), clearNotesFromApi()]);
+      await Promise.all([
+        clearWarningsFromApi(targetPostId),
+        clearNotesFromApi(targetPostId),
+      ]);
       setWarnings([]);
       setNotes([]);
       setClearSuccess('Case data cleared successfully');
+      addTimelineEvent('case_cleared', 'Case data cleared.', moderatorName);
       console.log('[RuleWatch] Clear case data completed');
     } catch (error) {
       const message =
@@ -312,7 +553,7 @@ export const Splash = () => {
 
   const handleProfileSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const trimmed = usernameInput.trim();
+    const trimmed = normalizeUsername(usernameInput);
     if (!trimmed) {
       setProfileError('Enter a username to search.');
       return;
@@ -320,6 +561,7 @@ export const Splash = () => {
 
     setProfileLoading(true);
     setProfileError(null);
+    setAutoProfileError(null);
 
     try {
       const loadedProfile = await loadUserProfileFromApi(trimmed);
@@ -333,6 +575,50 @@ export const Splash = () => {
     }
   };
 
+  const handleUsernameSelect = async (username: string) => {
+    const normalized = normalizeUsername(username);
+    console.log('[RuleWatch] username selected', {
+      raw: username,
+      normalized,
+    });
+    setUsernameInput(normalized);
+    setProfileLoading(true);
+    setProfileError(null);
+    setAutoProfileError(null);
+
+    try {
+      const loadedProfile = await loadUserProfileFromApi(normalized);
+      setProfile(loadedProfile);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to load user profile';
+      setProfileError(message);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleCaseStatusChange = async (status: CaseStatus) => {
+    setIsStatusLoading(true);
+    setStatusError(null);
+    try {
+      await saveCaseStatusToApi(status, targetPostId);
+      setCaseStatus(status);
+      addTimelineEvent('status_changed', `Status changed to ${status}.`, moderatorName);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to update case status';
+      setStatusError(message);
+    } finally {
+      setIsStatusLoading(false);
+    }
+  };
+
+  const handleGenerateSummary = (summary: string) => {
+    setModSummary(summary);
+    addTimelineEvent('summary_generated', 'Moderation summary generated.', moderatorName);
+  };
+
   return (
     <div className="min-h-screen bg-black text-white p-6">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -343,155 +629,78 @@ export const Splash = () => {
           </p>
         </div>
 
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Target Post</h2>
+            <span className="text-xs text-zinc-400">
+              {targetPostId ? `Post ID ${targetPostId}` : 'Unknown'}
+            </span>
+          </div>
+          {targetPostLoading ? (
+            <p className="text-sm text-zinc-400">Loading target post...</p>
+          ) : targetPostError ? (
+            <p className="text-sm text-yellow-300">{targetPostError}</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-zinc-400">
+                Author: <span className="text-zinc-100">u/{targetPostAuthor}</span>
+              </p>
+              <p className="text-lg font-semibold">{targetPostTitle || 'Untitled'}</p>
+              <p className="text-sm text-zinc-300">
+                {targetPostBody
+                  ? targetPostBody.length > 220
+                    ? `${targetPostBody.slice(0, 220)}...`
+                    : targetPostBody
+                  : 'No post body provided.'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <ProfileSearch
+          usernameInput={usernameInput}
+          onUsernameChange={setUsernameInput}
+          onSearch={handleProfileSearch}
+          onSelectUsername={handleUsernameSelect}
+          isLoading={profileLoading}
+          autoLoading={autoProfileLoading}
+          autoError={autoProfileError}
+          error={profileError}
+          profile={profile}
+          formatTimestamp={formatTimestamp}
+          getAccountAgeLabel={getAccountAgeLabel}
+        />
+
+        <ModAssistant
+          warnings={warnings}
+          notes={notes}
+          profile={profile}
+          summary={modSummary}
+          scanResult={scanResult}
+          scanLoading={scanLoading}
+          scanError={scanError}
+          onGenerateSummary={handleGenerateSummary}
+        />
+
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-          <div>
-            <h2 className="text-2xl font-semibold">Moderation Profile</h2>
-            <p className="text-sm text-zinc-400">
-              Search a Reddit user to load account history and risk analysis.
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Scan Debug</h2>
+            <span className="text-xs text-zinc-400">Temporary</span>
+          </div>
+          <div className="text-sm text-zinc-300">
+            <p>Scan exists: {scanResult ? 'Yes' : 'No'}</p>
+            <p>
+              Last scan timestamp:{' '}
+              {scanResult?.createdAt ? formatTimestamp(scanResult.createdAt) : 'N/A'}
             </p>
           </div>
-
-          <form
-            className="flex flex-col sm:flex-row gap-3"
-            onSubmit={handleProfileSearch}
-          >
-            <input
-              className="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter username (without u/)"
-              value={usernameInput}
-              onChange={(event) => setUsernameInput(event.target.value)}
-            />
-            <button
-              className="bg-blue-500 px-4 py-2 rounded-xl font-semibold hover:bg-blue-600 transition"
-              type="submit"
-              disabled={profileLoading}
-            >
-              {profileLoading ? 'Loading...' : 'Search'}
-            </button>
-          </form>
-
-          {profileError ? (
-            <p className="text-sm text-red-300">{profileError}</p>
+          <div className="bg-zinc-950/70 border border-zinc-800 rounded-xl p-4 text-xs text-zinc-200 overflow-auto max-h-72 whitespace-pre-wrap">
+            {scanResult ? JSON.stringify(scanResult, null, 2) : 'No scan payload.'}
+          </div>
+          {scanLoading ? (
+            <p className="text-xs text-zinc-400">Loading scan result...</p>
           ) : null}
-
-          {profile ? (
-            <div className="space-y-6">
-              <div className="grid gap-4 lg:grid-cols-3">
-                <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
-                  <p className="text-sm text-zinc-400">Username</p>
-                  <p className="text-lg font-semibold">u/{profile.username}</p>
-                </div>
-                <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
-                  <p className="text-sm text-zinc-400">Account Age</p>
-                  <p className="text-lg font-semibold">
-                    {getAccountAgeLabel(profile.createdAt)}
-                  </p>
-                </div>
-                <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
-                  <p className="text-sm text-zinc-400">Total Karma</p>
-                  <p className="text-lg font-semibold">{profile.totalKarma}</p>
-                  <p className="text-xs text-zinc-400">
-                    Link {profile.linkKarma} · Comment {profile.commentKarma}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-                <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 space-y-3">
-                  <h3 className="text-lg font-semibold">Risk Analysis</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs border ${
-                        riskBadgeStyles[profile.risk.spamRisk]
-                      }`}
-                    >
-                      Spam Risk: {profile.risk.spamRisk}
-                    </span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs border ${
-                        riskBadgeStyles[profile.risk.harassmentRisk]
-                      }`}
-                    >
-                      Harassment Risk: {profile.risk.harassmentRisk}
-                    </span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs border ${
-                        profile.risk.banRecommendation === 'Permanent'
-                          ? 'bg-red-500/20 text-red-200 border-red-500/40'
-                          : profile.risk.banRecommendation === 'Temporary'
-                          ? 'bg-yellow-500/20 text-yellow-200 border-yellow-500/40'
-                          : 'bg-zinc-700/30 text-zinc-200 border-zinc-600'
-                      }`}
-                    >
-                      Ban: {profile.risk.banRecommendation}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-sm text-zinc-300 mb-2">
-                      Suspicious patterns
-                    </p>
-                    {profile.risk.suspiciousPatterns.length === 0 ? (
-                      <p className="text-sm text-zinc-400">
-                        No suspicious patterns detected.
-                      </p>
-                    ) : (
-                      <ul className="space-y-1 text-sm text-zinc-200">
-                        {profile.risk.suspiciousPatterns.map((pattern) => (
-                          <li key={pattern}>{pattern}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 space-y-3">
-                  <h3 className="text-lg font-semibold">Recent Posts</h3>
-                  {profile.recentPosts.length === 0 ? (
-                    <p className="text-sm text-zinc-400">No recent posts found.</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {profile.recentPosts.map((post) => (
-                        <li key={post.id} className="border border-zinc-700 rounded-lg p-3">
-                          <p className="text-sm font-semibold">{post.title}</p>
-                          <p className="text-xs text-zinc-400">
-                            r/{post.subredditName} · {formatTimestamp(post.createdAt)}
-                          </p>
-                          <p className="text-xs text-zinc-400">Score: {post.score}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 space-y-3">
-                <h3 className="text-lg font-semibold">Recent Comments</h3>
-                {profile.recentComments.length === 0 ? (
-                  <p className="text-sm text-zinc-400">No recent comments found.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {profile.recentComments.map((comment) => (
-                      <li key={comment.id} className="border border-zinc-700 rounded-lg p-3">
-                        <p className="text-sm">
-                          {comment.body.length > 160
-                            ? `${comment.body.slice(0, 160)}...`
-                            : comment.body}
-                        </p>
-                        <p className="text-xs text-zinc-400">
-                          r/{comment.subredditName} · {formatTimestamp(comment.createdAt)}
-                        </p>
-                        <p className="text-xs text-zinc-400">Score: {comment.score}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-zinc-500">
-              No profile loaded yet. Search a username to begin.
-            </p>
-          )}
+          {scanError ? <p className="text-xs text-red-300">{scanError}</p> : null}
         </div>
 
         <div className="space-y-2">
@@ -529,42 +738,18 @@ export const Splash = () => {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
-            <div>
-              <h2 className="text-2xl font-semibold mb-2">User Overview</h2>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="bg-zinc-950/60 border border-zinc-800 rounded-xl p-4">
-                  <p className="text-sm text-zinc-400">Username</p>
-                  <p className="text-lg font-semibold">{displayUsername}</p>
-                  <p className="text-xs text-zinc-400">Account Age: {accountAge}</p>
-                </div>
-                <div className="bg-zinc-950/60 border border-zinc-800 rounded-xl p-4">
-                  <p className="text-sm text-zinc-400">Warnings</p>
-                  <p className="text-lg font-semibold">{warningsCount}</p>
-                  <p className="text-xs text-zinc-400">Total Karma: {totalKarma}</p>
-                </div>
-                <div className="bg-zinc-950/60 border border-zinc-800 rounded-xl p-4 sm:col-span-2">
-                  <p className="text-sm text-zinc-400">Last Warning</p>
-                  <p className="text-lg font-semibold">
-                    {lastWarning ? lastWarning.reason : 'No warnings yet'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-zinc-800 pt-6">
-              <h3 className="text-lg font-semibold mb-3">User Risk Score</h3>
-              <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-zinc-400">Risk Level</span>
-                  <span className="text-sm font-semibold">{riskStatus.label}</span>
-                </div>
-                <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                  <div className={`h-full ${riskStatus.color} ${riskStatus.width}`} />
-                </div>
-              </div>
-            </div>
-          </div>
+          <UserOverview
+            displayUsername={displayUsername}
+            accountAge={accountAge}
+            warningsCount={warningsCount}
+            totalKarma={totalKarma}
+            lastWarning={lastWarning}
+            riskStatus={riskStatus}
+            caseStatus={caseStatus}
+            isStatusLoading={isStatusLoading}
+            statusError={statusError}
+            onStatusChange={handleCaseStatusChange}
+          />
 
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
             <div>
@@ -629,40 +814,7 @@ export const Splash = () => {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-            <h3 className="text-xl font-semibold mb-4">Warning History</h3>
-            {warnings.length === 0 ? (
-              <p className="text-zinc-400">No warnings issued yet.</p>
-            ) : (
-              <ul className="space-y-3">
-                {warnings.map((warning, index) => (
-                  <li
-                    key={`${warning.timestamp}-${index}`}
-                    className="bg-zinc-800 rounded-xl p-4 flex flex-col gap-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-zinc-400">
-                        {warning.timestamp}
-                      </span>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs border ${
-                          severityStyles[warning.severity]
-                        }`}
-                      >
-                        {warning.severity}
-                      </span>
-                    </div>
-                    <span className="text-base font-medium">
-                      {warning.reason}
-                    </span>
-                    <span className="text-xs text-zinc-400">
-                      Issued by {warning.moderator}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <WarningHistory warnings={warnings} severityStyles={severityStyles} />
 
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
             <h3 className="text-xl font-semibold mb-4">Moderator Notes</h3>
@@ -672,7 +824,7 @@ export const Splash = () => {
               </label>
               <textarea
                 id="note"
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[96px]"
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-24"
                 placeholder="Add context for the mod team..."
                 value={noteInput}
                 onChange={(event) => setNoteInput(event.target.value)}
@@ -708,55 +860,16 @@ export const Splash = () => {
           </div>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-          <h3 className="text-xl font-semibold mb-4">Moderation Timeline</h3>
-          {timelineItems.length === 0 ? (
-            <p className="text-zinc-400">No activity yet.</p>
-          ) : (
-            <ul className="space-y-3">
-              {timelineItems.map((item, index) => (
-                <li
-                  key={`${item.timestamp}-${index}`}
-                  className="bg-zinc-800 rounded-xl p-4 flex flex-col gap-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-400">
-                      {item.timestamp}
-                    </span>
-                    <span className="text-xs uppercase tracking-wide text-zinc-300">
-                      {item.type === 'warning' ? 'Warning' : 'Note'}
-                    </span>
-                  </div>
-                  {item.type === 'warning' ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-medium">
-                          {item.reason}
-                        </span>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs border ${
-                            severityStyles[item.severity]
-                          }`}
-                        >
-                          {item.severity}
-                        </span>
-                      </div>
-                      <span className="text-xs text-zinc-400">
-                        Issued by {item.moderator}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <span className="text-base font-medium">{item.note}</span>
-                      <span className="text-xs text-zinc-400">
-                        Added by {item.moderator}
-                      </span>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="space-y-2">
+          {timelineError ? (
+            <p className="text-sm text-red-300">{timelineError}</p>
+          ) : null}
+          <Timeline
+            warnings={warnings}
+            notes={notes}
+            events={timelineEvents}
+            severityStyles={severityStyles}
+          />
         </div>
       </div>
     </div>
