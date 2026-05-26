@@ -11,7 +11,7 @@ type MobileTabsProps = {
 
 export const MobileTabs = ({ tabs, activeTab, onChange }: MobileTabsProps) => {
   return (
-    <div className="hidden lg:flex items-center gap-2 bg-zinc-900/80 border border-zinc-800 rounded-2xl p-2">
+    <div className="sticky top-3 z-20 flex items-center gap-2 overflow-x-auto bg-zinc-950/90 border border-zinc-800 rounded-xl p-2 backdrop-blur sm:static sm:bg-zinc-900/80 sm:rounded-2xl">
       {tabs.map((tab) => {
         const isActive = tab.id === activeTab;
         return (
@@ -19,7 +19,7 @@ export const MobileTabs = ({ tabs, activeTab, onChange }: MobileTabsProps) => {
             key={tab.id}
             type="button"
             onClick={() => onChange(tab.id)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
+            className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm sm:rounded-xl ${
               isActive
                 ? 'bg-blue-500 text-white'
                 : 'bg-transparent text-zinc-300 hover:text-white hover:bg-zinc-800'

@@ -124,32 +124,32 @@ export const ProfileSearch = ({
 
   return (
     <div
-      className="bg-gradient-to-br from-zinc-900/80 via-zinc-900/95 to-zinc-950/90 border border-white/10 rounded-2xl p-6 space-y-4 backdrop-blur"
+      className="bg-gradient-to-br from-zinc-900/80 via-zinc-900/95 to-zinc-950/90 border border-white/10 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-3 sm:space-y-4 backdrop-blur"
       ref={containerRef}
     >
       <div>
-        <h2 className="text-2xl font-semibold">Moderation Profile</h2>
-        <p className="text-sm text-zinc-400">
+        <h2 className="text-lg font-semibold sm:text-2xl">Moderation Profile</h2>
+        <p className="text-xs text-zinc-400 sm:text-sm">
           RuleWatch auto-loads the current post author. Manual search is optional.
         </p>
       </div>
 
       {autoLoading ? (
-        <div className="text-sm text-zinc-300">
+        <div className="text-xs text-zinc-300 sm:text-sm">
           Auto-loading current post author...
         </div>
       ) : null}
 
       {autoError ? (
-        <p className="text-sm text-yellow-300">
+        <p className="text-xs text-yellow-300 sm:text-sm">
           Auto-load failed. Use manual search to continue.
         </p>
       ) : null}
 
-      <form className="flex flex-col sm:flex-row gap-3" onSubmit={onSearch}>
+      <form className="flex flex-col sm:flex-row gap-2 sm:gap-3" onSubmit={onSearch}>
         <div className="relative flex-1">
           <input
-            className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg sm:rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-base sm:px-4"
             placeholder="Enter username (without u/)"
             value={usernameInput}
             onChange={(event) => {
@@ -164,14 +164,16 @@ export const ProfileSearch = ({
             onKeyDown={handleKeyDown}
           />
           {isOpen && usernameInput.trim().length > 0 ? (
-            <div className="absolute z-20 mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 shadow-lg overflow-hidden">
+            <div className="absolute z-20 mt-2 w-full rounded-lg sm:rounded-xl border border-zinc-700 bg-zinc-950 shadow-lg overflow-hidden">
               {isSuggesting ? (
-                <div className="flex items-center gap-2 px-4 py-3 text-sm text-zinc-400">
+                <div className="flex items-center gap-2 px-3 py-2 text-xs text-zinc-400 sm:px-4 sm:py-3 sm:text-sm">
                   <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" />
                   Searching users...
                 </div>
               ) : suggestions.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-zinc-500">No users found</div>
+                <div className="px-3 py-2 text-xs text-zinc-500 sm:px-4 sm:py-3 sm:text-sm">
+                  No users found
+                </div>
               ) : (
                 <ul className="max-h-56 overflow-auto">
                   {suggestions.map((suggestion, index) => {
@@ -180,7 +182,7 @@ export const ProfileSearch = ({
                       <li key={suggestion.username}>
                         <button
                           type="button"
-                          className={`w-full text-left px-4 py-2 text-sm transition ${
+                          className={`w-full text-left px-3 py-2 text-xs transition sm:px-4 sm:text-sm ${
                             isActive
                               ? 'bg-zinc-800 text-white'
                               : 'text-zinc-200 hover:bg-zinc-900'
@@ -191,7 +193,7 @@ export const ProfileSearch = ({
                           <div className="flex items-center justify-between">
                             <span>u/{suggestion.username}</span>
                             {suggestion.karma || suggestion.accountAgeDays ? (
-                              <span className="text-xs text-zinc-400">
+                              <span className="text-[10px] text-zinc-400 sm:text-xs">
                                 {typeof suggestion.karma === 'number'
                                   ? `${suggestion.karma} karma`
                                   : ''}
@@ -215,7 +217,7 @@ export const ProfileSearch = ({
           ) : null}
         </div>
         <button
-          className="bg-blue-500 px-4 py-2 rounded-xl font-semibold hover:bg-blue-600 transition"
+          className="bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition sm:rounded-xl sm:text-base"
           type="submit"
           disabled={isLoading}
         >
@@ -223,65 +225,68 @@ export const ProfileSearch = ({
         </button>
       </form>
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p className="text-xs text-red-300 sm:text-sm">{error}</p> : null}
 
       {autoLoading && !profile ? (
-        <div className="space-y-4 animate-pulse">
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="h-20 rounded-xl bg-zinc-800/70 border border-zinc-700" />
-            <div className="h-20 rounded-xl bg-zinc-800/70 border border-zinc-700" />
-            <div className="h-20 rounded-xl bg-zinc-800/70 border border-zinc-700" />
+        <div className="space-y-3 animate-pulse">
+          <div className="grid gap-2 sm:gap-4 lg:grid-cols-3">
+            <div className="h-14 rounded-lg sm:rounded-xl bg-zinc-800/70 border border-zinc-700" />
+            <div className="h-14 rounded-lg sm:rounded-xl bg-zinc-800/70 border border-zinc-700" />
+            <div className="h-14 rounded-lg sm:rounded-xl bg-zinc-800/70 border border-zinc-700" />
           </div>
-          <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <div className="h-56 rounded-xl bg-zinc-800/70 border border-zinc-700" />
-            <div className="h-56 rounded-xl bg-zinc-800/70 border border-zinc-700" />
+          <div className="grid gap-2 sm:gap-4 lg:grid-cols-[1fr_1fr]">
+            <div className="h-40 sm:h-56 rounded-lg sm:rounded-xl bg-zinc-800/70 border border-zinc-700" />
+            <div className="h-40 sm:h-56 rounded-lg sm:rounded-xl bg-zinc-800/70 border border-zinc-700" />
           </div>
-          <div className="h-48 rounded-xl bg-zinc-800/70 border border-zinc-700" />
         </div>
       ) : profile ? (
-        <div className="space-y-6">
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
-              <p className="text-sm text-zinc-400">Username</p>
-              <p className="text-lg font-semibold">u/{profile.username}</p>
+        <div className="space-y-4 sm:space-y-6">
+          <div className="grid gap-2 sm:gap-4 lg:grid-cols-3">
+            <div className="bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 flex items-center justify-between sm:block">
+              <p className="text-xs text-zinc-400">Username</p>
+              <p className="text-sm font-semibold sm:text-lg">u/{profile.username}</p>
             </div>
-            <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
-              <p className="text-sm text-zinc-400">Account Age</p>
-              <p className="text-lg font-semibold">
+            <div className="bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 flex items-center justify-between sm:block">
+              <p className="text-xs text-zinc-400">Account Age</p>
+              <p className="text-sm font-semibold sm:text-lg">
                 {getAccountAgeLabel(profile.createdAt)}
               </p>
             </div>
-            <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
-              <p className="text-sm text-zinc-400">Total Karma</p>
-              <p className="text-lg font-semibold">{profile.totalKarma}</p>
-              <p className="text-xs text-zinc-400">
+            <div className="bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 flex items-center justify-between sm:block">
+              <div>
+                <p className="text-xs text-zinc-400">Total Karma</p>
+                <p className="text-sm font-semibold sm:text-lg">{profile.totalKarma}</p>
+              </div>
+              <p className="text-[10px] text-zinc-400 sm:text-xs">
                 Link {profile.linkKarma} · Comment {profile.commentKarma}
               </p>
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 space-y-3">
-              <h3 className="text-lg font-semibold">Risk Analysis</h3>
+          <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_1fr]">
+            <div className="bg-zinc-800 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 space-y-3">
+              <h3 className="text-base font-semibold sm:text-lg">Risk Analysis</h3>
               <div className="flex flex-wrap gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs border ${riskStyles[profile.risk.spamRisk] || riskStyles.Low}`}>
+                <span className={`px-2 py-1 rounded-full text-[10px] border sm:px-3 sm:text-xs ${riskStyles[profile.risk.spamRisk] || riskStyles.Low}`}>
                   Spam Risk: {profile.risk.spamRisk}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-xs border ${riskStyles[profile.risk.harassmentRisk] || riskStyles.Low}`}>
+                <span className={`px-2 py-1 rounded-full text-[10px] border sm:px-3 sm:text-xs ${riskStyles[profile.risk.harassmentRisk] || riskStyles.Low}`}>
                   Harassment Risk: {profile.risk.harassmentRisk}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-xs border ${banStyles[profile.risk.banRecommendation] || banStyles.None}`}>
+                <span className={`px-2 py-1 rounded-full text-[10px] border sm:px-3 sm:text-xs ${banStyles[profile.risk.banRecommendation] || banStyles.None}`}>
                   Ban: {profile.risk.banRecommendation}
                 </span>
               </div>
               <div>
-                <p className="text-sm text-zinc-300 mb-2">Suspicious patterns</p>
+                <p className="text-xs text-zinc-300 mb-2 sm:text-sm">
+                  Suspicious patterns
+                </p>
                 {profile.risk.suspiciousPatterns.length === 0 ? (
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-xs text-zinc-400 sm:text-sm">
                     No suspicious patterns detected.
                   </p>
                 ) : (
-                  <ul className="space-y-1 text-sm text-zinc-200">
+                  <ul className="space-y-1 text-xs text-zinc-200 sm:text-sm">
                     {profile.risk.suspiciousPatterns.map((pattern) => (
                       <li key={pattern}>{pattern}</li>
                     ))}
@@ -345,7 +350,7 @@ export const ProfileSearch = ({
           ) : null}
         </div>
       ) : (
-        <p className="text-sm text-zinc-500">
+        <p className="text-xs text-zinc-500 sm:text-sm">
           No profile loaded yet. Search a username to begin.
         </p>
       )}

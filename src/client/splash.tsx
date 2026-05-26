@@ -36,6 +36,14 @@ const moderatorName = 'u/VipeenKumar';
 
 const severityOptions: Severity[] = ['Low', 'Medium', 'High'];
 
+const caseStatusOptions: CaseStatus[] = [
+  'Open',
+  'Under Review',
+  'Escalated',
+  'Resolved',
+  'Banned',
+];
+
 const severityStyles: Record<Severity, string> = {
   Low: 'bg-green-500/20 text-green-300 border-green-500/40',
   Medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
@@ -673,31 +681,40 @@ export const Splash = () => {
   };
 
   const renderOverviewContent = () => (
-    <div className="space-y-6">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-2">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Target Post</h2>
-          <span className="text-xs text-zinc-400">
+          <h2 className="text-base font-semibold sm:text-xl">Target Post</h2>
+          <span className="text-[10px] text-zinc-400 sm:text-xs">
             {targetPostId ? `Post ID ${targetPostId}` : 'Unknown'}
           </span>
         </div>
         {targetPostLoading ? (
-          <p className="text-sm text-zinc-400">Loading target post...</p>
+          <p className="text-xs text-zinc-400 sm:text-sm">Loading target post...</p>
         ) : targetPostError ? (
-          <p className="text-sm text-yellow-300">{targetPostError}</p>
+          <p className="text-xs text-yellow-300 sm:text-sm">{targetPostError}</p>
         ) : (
           <div className="space-y-2">
-            <p className="text-sm text-zinc-400">
-              Author: <span className="text-zinc-100">u/{targetPostAuthor}</span>
+            <p className="text-xs text-zinc-400">
+              u/{targetPostAuthor || 'unknown'}
             </p>
-            <p className="text-lg font-semibold">{targetPostTitle || 'Untitled'}</p>
-            <p className="text-sm text-zinc-300">
-              {targetPostBody
-                ? targetPostBody.length > 220
-                  ? `${targetPostBody.slice(0, 220)}...`
-                  : targetPostBody
-                : 'No post body provided.'}
+            <p className="text-sm font-semibold sm:text-lg">
+              {targetPostTitle || 'Untitled'}
             </p>
+            <div className="grid gap-1 text-[10px] text-zinc-300 sm:text-xs">
+              <div className="flex items-center justify-between">
+                <span>Risk</span>
+                <span>{riskStatus.label}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Score</span>
+                <span>{scanResult?.riskScore ?? 'N/A'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Action</span>
+                <span>{scanResult?.recommendedAction ?? 'N/A'}</span>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -717,39 +734,92 @@ export const Splash = () => {
         showActivity={false}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <UserOverview
-          displayUsername={displayUsername}
-          accountAge={accountAge}
-          warningsCount={warningsCount}
-          totalKarma={totalKarma}
-          lastWarning={lastWarning}
-          riskStatus={riskStatus}
-          caseStatus={caseStatus}
-          isStatusLoading={isStatusLoading}
-          statusError={statusError}
-          onStatusChange={handleCaseStatusChange}
-        />
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="sm:hidden bg-zinc-900 border border-zinc-800 rounded-xl p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-zinc-400">Case Status</span>
+            <select
+              className="bg-transparent text-white text-xs font-semibold focus:outline-none"
+              value={caseStatus}
+              onChange={(event) => onStatusChange(event.target.value as CaseStatus)}
+              disabled={isStatusLoading}
+            >
+              {caseStatusOptions.map((status) => (
+                <option key={status} value={status} className="text-black">
+                  {status}
+                </option>
+              ))}
+            </select>
+          </div>
+          {statusError ? (
+            <p className="text-[10px] text-red-300">{statusError}</p>
+          ) : null}
+          <div className="grid gap-1 text-[10px] text-zinc-300">
+            <div className="flex items-center justify-between">
+              <span>Username</span>
+              <span>{displayUsername}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Karma</span>
+              <span>{totalKarma}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Age</span>
+              <span>{accountAge}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Spam Risk</span>
+              <span>{profile?.risk.spamRisk ?? 'N/A'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Presence</span>
+              <span>{profile?.subredditPresence.length ?? 0} subs</span>
+            </div>
+          </div>
+        </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-          <div className={`border rounded-2xl px-4 py-3 ${escalationStatus.style}`}>
-            <span className="text-sm uppercase tracking-wide text-zinc-300">
+        <div className="hidden sm:block">
+          <UserOverview
+            displayUsername={displayUsername}
+            accountAge={accountAge}
+            warningsCount={warningsCount}
+            totalKarma={totalKarma}
+            lastWarning={lastWarning}
+            riskStatus={riskStatus}
+            caseStatus={caseStatus}
+            isStatusLoading={isStatusLoading}
+            statusError={statusError}
+            onStatusChange={handleCaseStatusChange}
+          />
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-3 sm:space-y-4">
+          <div className={`border rounded-xl sm:rounded-2xl px-3 py-2 sm:px-4 sm:py-3 ${escalationStatus.style}`}>
+            <span className="text-xs uppercase tracking-wide text-zinc-300 sm:text-sm">
               Escalation Status
             </span>
-            <div className="text-lg font-semibold">{escalationStatus.label}</div>
+            <div className="text-sm font-semibold sm:text-lg">
+              {escalationStatus.label}
+            </div>
           </div>
           <button
-            className="bg-red-600/80 border border-red-500 text-white px-4 py-3 rounded-xl font-semibold hover:bg-red-600 transition"
+            className="bg-red-600/80 border border-red-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition sm:rounded-xl sm:py-3"
             onClick={handleClearCaseData}
             disabled={isClearing}
           >
             {isClearing ? 'Clearing...' : 'Clear All Case Data'}
           </button>
-          {clearSuccess ? <p className="text-sm text-green-300">{clearSuccess}</p> : null}
-          {clearError ? <p className="text-sm text-red-300">{clearError}</p> : null}
-          {isLoading ? <p className="text-sm text-zinc-400">Loading saved data...</p> : null}
+          {clearSuccess ? (
+            <p className="text-xs text-green-300 sm:text-sm">{clearSuccess}</p>
+          ) : null}
+          {clearError ? (
+            <p className="text-xs text-red-300 sm:text-sm">{clearError}</p>
+          ) : null}
+          {isLoading ? (
+            <p className="text-xs text-zinc-400 sm:text-sm">Loading saved data...</p>
+          ) : null}
           {!isLoading && loadError ? (
-            <p className="text-sm text-red-300">{loadError}</p>
+            <p className="text-xs text-red-300 sm:text-sm">{loadError}</p>
           ) : null}
         </div>
       </div>
@@ -798,19 +868,23 @@ export const Splash = () => {
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       <WarningHistory warnings={warnings} severityStyles={severityStyles} />
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div>
-          <h2 className="text-2xl font-semibold mb-2">Issue Warning</h2>
-          <p className="text-sm text-zinc-400">Moderator: {moderatorName}</p>
+          <h2 className="text-lg font-semibold mb-1 sm:text-2xl sm:mb-2">
+            Issue Warning
+          </h2>
+          <p className="text-xs text-zinc-400 sm:text-sm">
+            Moderator: {moderatorName}
+          </p>
         </div>
 
-        <div className="bg-zinc-800 rounded-xl p-4">
-          <label className="block text-sm text-zinc-300 mb-2" htmlFor="reason">
+        <div className="bg-zinc-800 rounded-lg sm:rounded-xl p-3 sm:p-4">
+          <label className="block text-xs text-zinc-300 mb-2 sm:text-sm" htmlFor="reason">
             Warning reason
           </label>
           <input
             id="reason"
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500"
             placeholder="e.g. Rule 2: Personal attacks"
             value={reasonInput}
             onChange={(event) => setReasonInput(event.target.value)}
@@ -819,7 +893,7 @@ export const Splash = () => {
             {presetReasons.map((preset) => (
               <button
                 key={preset}
-                className="px-3 py-1 rounded-full text-xs bg-zinc-900 border border-zinc-700 text-zinc-200 hover:border-red-400 hover:text-white transition"
+                className="px-3 py-1 rounded-full text-[10px] bg-zinc-900 border border-zinc-700 text-zinc-200 hover:border-red-400 hover:text-white transition sm:text-xs"
                 onClick={() => handlePresetClick(preset)}
               >
                 {preset}
@@ -829,12 +903,12 @@ export const Splash = () => {
         </div>
 
         <div>
-          <p className="text-sm text-zinc-300 mb-2">Severity</p>
+          <p className="text-xs text-zinc-300 mb-2 sm:text-sm">Severity</p>
           <div className="flex flex-wrap gap-2">
             {severityOptions.map((severity) => (
               <button
                 key={severity}
-                className={`px-4 py-2 rounded-full border text-xs font-semibold transition ${
+                className={`px-3 py-1.5 rounded-full border text-[10px] font-semibold transition sm:px-4 sm:py-2 sm:text-xs ${
                   severityStyles[severity]
                 } ${
                   selectedSeverity === severity
@@ -850,7 +924,7 @@ export const Splash = () => {
         </div>
 
         <button
-          className="bg-red-500 px-4 py-3 rounded-xl font-semibold hover:bg-red-600 transition"
+          className="bg-red-500 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition sm:rounded-xl sm:py-3"
           onClick={handleWarnUser}
         >
           Warn User
@@ -872,21 +946,23 @@ export const Splash = () => {
   );
 
   const renderNotesContent = () => (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-      <h3 className="text-xl font-semibold mb-4">Moderator Notes</h3>
-      <div className="bg-zinc-800 rounded-xl p-4 mb-4">
-        <label className="block text-sm text-zinc-300 mb-2" htmlFor="note">
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+      <h3 className="text-lg font-semibold mb-3 sm:text-xl sm:mb-4">
+        Moderator Notes
+      </h3>
+      <div className="bg-zinc-800 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-4">
+        <label className="block text-xs text-zinc-300 mb-2 sm:text-sm" htmlFor="note">
           Add a note
         </label>
         <textarea
           id="note"
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-24"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-20 sm:min-h-24"
           placeholder="Add context for the mod team..."
           value={noteInput}
           onChange={(event) => setNoteInput(event.target.value)}
         />
         <button
-          className="mt-3 bg-blue-500 px-4 py-3 rounded-xl font-semibold hover:bg-blue-600 transition"
+          className="mt-3 bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition sm:rounded-xl sm:py-3"
           onClick={handleAddNote}
         >
           Add Note
@@ -894,17 +970,19 @@ export const Splash = () => {
       </div>
 
       {notes.length === 0 ? (
-        <p className="text-zinc-400">No moderator notes yet.</p>
+        <p className="text-xs text-zinc-400 sm:text-sm">No moderator notes yet.</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2 sm:space-y-3">
           {notes.map((note, index) => (
             <li
               key={`${note.timestamp}-${index}`}
-              className="bg-zinc-800 rounded-xl p-4 flex flex-col gap-1"
+              className="bg-zinc-800 rounded-lg sm:rounded-xl p-3 sm:p-4 flex flex-col gap-1"
             >
-              <span className="text-sm text-zinc-400">{note.timestamp}</span>
-              <span className="text-base font-medium">{note.note}</span>
-              <span className="text-xs text-zinc-400">Added by {note.moderator}</span>
+              <span className="text-[10px] text-zinc-400 sm:text-sm">{note.timestamp}</span>
+              <span className="text-sm font-medium sm:text-base">{note.note}</span>
+              <span className="text-[10px] text-zinc-400 sm:text-xs">
+                Added by {note.moderator}
+              </span>
             </li>
           ))}
         </ul>
@@ -932,11 +1010,11 @@ export const Splash = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 pb-24">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex flex-col items-start gap-2">
-          <h1 className="text-4xl sm:text-5xl font-bold">RuleWatch</h1>
-          <p className="text-base sm:text-lg text-zinc-300">
+    <div className="min-h-screen bg-black text-white p-4 sm:p-6 pb-16 sm:pb-24">
+      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
+        <div className="flex flex-col items-start gap-1.5 sm:gap-2">
+          <h1 className="text-3xl sm:text-5xl font-bold">RuleWatch</h1>
+          <p className="text-sm sm:text-lg text-zinc-300">
             Moderation case management dashboard
           </p>
         </div>
@@ -947,7 +1025,7 @@ export const Splash = () => {
           onChange={(id) => setActiveSection(id as DashboardSectionId)}
         />
 
-        <div className="space-y-4 lg:hidden">
+        <div className="space-y-3 sm:space-y-4 lg:hidden">
           {dashboardSections.map((section) => (
             <CollapsibleSection
               key={section.id}

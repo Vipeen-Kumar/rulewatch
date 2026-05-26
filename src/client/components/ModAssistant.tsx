@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { NoteEntry, PostScanResult, UserProfile, WarningEntry } from '../../shared/api';
 
 type ModAssistantProps = {
@@ -241,6 +242,8 @@ export const ModAssistant = ({
   scanError,
   onGenerateSummary,
 }: ModAssistantProps) => {
+  const [showDetails, setShowDetails] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const recommendation = getRecommendation(warnings, notes, profile);
   const totalSeverity =
     recommendation.severityCounts.low +
@@ -268,45 +271,63 @@ export const ModAssistant = ({
   const handleGenerateSummary = () => {
     const report = buildSummaryReport(warnings, notes, profile, recommendation);
     onGenerateSummary(report);
+    setShowSummary(true);
   };
 
   return (
-    <div className="bg-gradient-to-br from-zinc-900/80 via-zinc-900/95 to-zinc-950/90 border border-white/10 rounded-2xl p-6 space-y-6 backdrop-blur">
+    <div className="bg-gradient-to-br from-zinc-900/80 via-zinc-900/95 to-zinc-950/90 border border-white/10 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-6 backdrop-blur">
       <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold">AI Moderation Assistant</h2>
-        <p className="text-sm text-zinc-400">
+        <h2 className="text-lg font-semibold sm:text-2xl">AI Moderation Assistant</h2>
+        <p className="text-xs text-zinc-400 sm:text-sm">
           Automated recommendations based on case activity and account signals.
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-4">
-        <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700 transition transform hover:-translate-y-0.5 hover:border-zinc-500/60">
-          <p className="text-xs text-zinc-400">Risk Score</p>
-          <p className="text-2xl font-semibold">{recommendation.riskScore}</p>
-          <p className="text-xs text-zinc-400">Confidence {recommendation.confidence}%</p>
+      <div className="sm:hidden bg-zinc-800/80 border border-zinc-700 rounded-lg p-3 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] text-zinc-400">Risk Score</p>
+          <p className="text-lg font-semibold">{recommendation.riskScore}</p>
+          <p className="text-[10px] text-zinc-400">Confidence {recommendation.confidence}%</p>
         </div>
-        <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700 transition transform hover:-translate-y-0.5 hover:border-zinc-500/60">
-          <p className="text-xs text-zinc-400">Recommended Action</p>
-          <p className="text-lg font-semibold">{recommendation.action}</p>
-        </div>
-        <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700 transition transform hover:-translate-y-0.5 hover:border-zinc-500/60">
-          <p className="text-xs text-zinc-400">Warnings Logged</p>
-          <p className="text-2xl font-semibold">{warnings.length}</p>
-          <p className="text-xs text-zinc-400">Notes {notes.length}</p>
-        </div>
-        <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700 transition transform hover:-translate-y-0.5 hover:border-zinc-500/60">
-          <p className="text-xs text-zinc-400">Activity Heat</p>
-          <p className="text-2xl font-semibold">{recommendation.activityScore}</p>
-          <p className="text-xs text-zinc-400">Heat score</p>
+        <div className="text-right">
+          <p className="text-[10px] text-zinc-400">Action</p>
+          <span className="inline-flex px-2 py-1 rounded-full text-[10px] bg-blue-500/20 text-blue-200 border border-blue-500/40">
+            {recommendation.action}
+          </span>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-        <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700 space-y-4 transition transform hover:-translate-y-0.5 hover:border-zinc-500/60">
-          <h3 className="text-lg font-semibold">Warning Severity Mix</h3>
-          <div className="flex items-center gap-4">
-            <div className="w-28 h-28 rounded-full" style={pieStyle} />
-            <div className="space-y-2 text-sm">
+      <div className={`grid gap-3 sm:gap-4 lg:grid-cols-4 ${showDetails ? 'grid' : 'hidden'} sm:grid`}>
+        <div className="bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 transition">
+          <p className="text-[10px] text-zinc-400 sm:text-xs">Risk Score</p>
+          <p className="text-xl font-semibold sm:text-2xl">{recommendation.riskScore}</p>
+          <p className="text-[10px] text-zinc-400 sm:text-xs">
+            Confidence {recommendation.confidence}%
+          </p>
+        </div>
+        <div className="bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 transition">
+          <p className="text-[10px] text-zinc-400 sm:text-xs">Recommended Action</p>
+          <p className="text-sm font-semibold sm:text-lg">{recommendation.action}</p>
+        </div>
+        <div className="bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 transition">
+          <p className="text-[10px] text-zinc-400 sm:text-xs">Warnings Logged</p>
+          <p className="text-xl font-semibold sm:text-2xl">{warnings.length}</p>
+          <p className="text-[10px] text-zinc-400 sm:text-xs">Notes {notes.length}</p>
+        </div>
+        <div className="bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 transition">
+          <p className="text-[10px] text-zinc-400 sm:text-xs">Activity Heat</p>
+          <p className="text-xl font-semibold sm:text-2xl">{recommendation.activityScore}</p>
+          <p className="text-[10px] text-zinc-400 sm:text-xs">Heat score</p>
+        </div>
+      </div>
+
+
+      <div className={`grid gap-4 sm:gap-6 lg:grid-cols-[0.8fr_1.2fr] ${showDetails ? 'grid' : 'hidden'} sm:grid`}>
+        <div className="bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 space-y-3 sm:space-y-4 transition">
+          <h3 className="text-base font-semibold sm:text-lg">Warning Severity Mix</h3>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full" style={pieStyle} />
+            <div className="space-y-1 text-xs sm:text-sm">
               <p className="text-green-300">Low: {recommendation.severityCounts.low}</p>
               <p className="text-yellow-300">Medium: {recommendation.severityCounts.medium}</p>
               <p className="text-red-300">High: {recommendation.severityCounts.high}</p>
@@ -314,10 +335,10 @@ export const ModAssistant = ({
           </div>
         </div>
 
-        <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700 space-y-4 transition transform hover:-translate-y-0.5 hover:border-zinc-500/60">
-          <h3 className="text-lg font-semibold">Risk Meter</h3>
+        <div className="bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 space-y-3 sm:space-y-4 transition">
+          <h3 className="text-base font-semibold sm:text-lg">Risk Meter</h3>
           <div>
-            <div className="flex items-center justify-between text-sm text-zinc-300 mb-2">
+            <div className="flex items-center justify-between text-xs text-zinc-300 mb-2 sm:text-sm">
               <span>Risk Score</span>
               <span>{recommendation.riskScore}/100</span>
             </div>
@@ -326,7 +347,7 @@ export const ModAssistant = ({
             </div>
           </div>
           <div>
-            <div className="flex items-center justify-between text-sm text-zinc-300 mb-2">
+            <div className="flex items-center justify-between text-xs text-zinc-300 mb-2 sm:text-sm">
               <span>Activity Heat</span>
               <span>{recommendation.activityScore}/100</span>
             </div>
@@ -334,38 +355,38 @@ export const ModAssistant = ({
               <div className="h-full bg-yellow-500" style={{ width: activityWidth }} />
             </div>
           </div>
-          <div className="text-xs text-zinc-400">
+          <div className="text-[10px] text-zinc-400 sm:text-xs">
             Spam hits: {recommendation.spamFrequency} · Toxic hits: {recommendation.toxicFrequency}
           </div>
         </div>
       </div>
 
-      <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700 space-y-4 transition transform hover:-translate-y-0.5 hover:border-zinc-500/60">
+      <div className={`bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 space-y-3 sm:space-y-4 transition ${showDetails ? 'block' : 'hidden'} sm:block`}>
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Latest Post Scan</h3>
-          <span className="text-xs text-zinc-400">Auto</span>
+          <h3 className="text-base font-semibold sm:text-lg">Latest Post Scan</h3>
+          <span className="text-[10px] text-zinc-400 sm:text-xs">Auto</span>
         </div>
         {scanLoading ? (
-          <p className="text-sm text-zinc-400">Loading scan results...</p>
+          <p className="text-xs text-zinc-400 sm:text-sm">Loading scan results...</p>
         ) : scanError ? (
-          <p className="text-sm text-red-300">{scanError}</p>
+          <p className="text-xs text-red-300 sm:text-sm">{scanError}</p>
         ) : scanResult ? (
           <div className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-3 text-sm">
+            <div className="grid gap-3 sm:grid-cols-3 text-xs sm:text-sm">
               <div>
-                <p className="text-xs text-zinc-400">Risk Score</p>
-                <p className="text-lg font-semibold">{scanResult.riskScore}</p>
-                <p className="text-xs text-zinc-400">
+                <p className="text-[10px] text-zinc-400 sm:text-xs">Risk Score</p>
+                <p className="text-base font-semibold sm:text-lg">{scanResult.riskScore}</p>
+                <p className="text-[10px] text-zinc-400 sm:text-xs">
                   Confidence {scanResult.confidence}%
                 </p>
               </div>
               <div>
-                <p className="text-xs text-zinc-400">Recommended Action</p>
-                <p className="text-sm font-semibold">{scanResult.recommendedAction}</p>
+                <p className="text-[10px] text-zinc-400 sm:text-xs">Recommended Action</p>
+                <p className="text-xs font-semibold sm:text-sm">{scanResult.recommendedAction}</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-400">Signals</p>
-                <p className="text-xs text-zinc-200">
+                <p className="text-[10px] text-zinc-400 sm:text-xs">Signals</p>
+                <p className="text-[10px] text-zinc-200 sm:text-xs">
                   {scanResult.postingFrequency} posts/24h · {scanResult.accountAgeDays}d age ·
                   {` ${scanResult.karma}`} karma
                 </p>
@@ -376,32 +397,52 @@ export const ModAssistant = ({
                 scanResult.flags.map((flag) => (
                   <span
                     key={flag}
-                    className="px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-200 border border-red-500/40"
+                    className="px-2 py-0.5 rounded-full text-[10px] bg-red-500/20 text-red-200 border border-red-500/40 sm:text-xs sm:py-1"
                   >
                     {flag.replace('_', ' ')}
                   </span>
                 ))
               ) : (
-                <span className="text-xs text-zinc-400">No flagged categories</span>
+                <span className="text-[10px] text-zinc-400 sm:text-xs">No flagged categories</span>
               )}
             </div>
-            <p className="text-sm text-zinc-200">{scanResult.summary}</p>
+            <p className="text-xs text-zinc-200 sm:text-sm">{scanResult.summary}</p>
           </div>
         ) : (
-          <p className="text-sm text-zinc-400">No scan results stored for this post.</p>
+          <p className="text-xs text-zinc-400 sm:text-sm">No scan results stored for this post.</p>
         )}
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 sm:gap-3">
+        <div className="flex flex-col gap-2 sm:hidden">
+          <button
+            className="bg-zinc-800/80 border border-zinc-700 text-white px-3 py-2 rounded-lg text-xs font-semibold"
+            onClick={() => setShowDetails((prev) => !prev)}
+          >
+            {showDetails ? 'Hide Details' : 'View Details'}
+          </button>
+          {summary ? (
+            <button
+              className="bg-zinc-800/80 border border-zinc-700 text-white px-3 py-2 rounded-lg text-xs font-semibold"
+              onClick={() => setShowSummary((prev) => !prev)}
+            >
+              {showSummary ? 'Hide Summary' : 'View Summary'}
+            </button>
+          ) : null}
+        </div>
         <button
-          className="bg-indigo-500/80 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-semibold transition"
+          className="bg-indigo-500/80 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition sm:rounded-xl sm:text-base"
           onClick={handleGenerateSummary}
         >
           Generate Mod Summary
         </button>
 
         {summary ? (
-          <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700 whitespace-pre-wrap text-sm text-zinc-200">
+          <div
+            className={`bg-zinc-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-zinc-700 whitespace-pre-wrap text-xs text-zinc-200 sm:text-sm ${
+              showSummary ? 'block' : 'hidden'
+            } sm:block`}
+          >
             {summary}
           </div>
         ) : null}
