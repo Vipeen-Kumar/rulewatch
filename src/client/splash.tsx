@@ -27,6 +27,10 @@ import { ProfileSearch } from './components/ProfileSearch';
 import { Timeline } from './components/Timeline';
 import { UserOverview } from './components/UserOverview';
 import { WarningHistory } from './components/WarningHistory';
+import { CollapsibleSection } from './components/CollapsibleSection';
+import { DashboardSection } from './components/DashboardSection';
+import { MobileTabs } from './components/MobileTabs';
+import { RecentActivity } from './components/RecentActivity';
 
 const moderatorName = 'u/VipeenKumar';
 
@@ -44,6 +48,23 @@ const presetReasons = [
   'Hate Speech',
   'Low Effort',
   'NSFW Violation',
+];
+
+type DashboardSectionId =
+  | 'overview'
+  | 'ai'
+  | 'activity'
+  | 'warnings'
+  | 'timeline'
+  | 'notes';
+
+const dashboardSections: Array<{ id: DashboardSectionId; label: string }> = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'ai', label: 'AI Report' },
+  { id: 'activity', label: 'Activity' },
+  { id: 'warnings', label: 'Warnings' },
+  { id: 'timeline', label: 'Timeline' },
+  { id: 'notes', label: 'Notes' },
 ];
 
 const buildApiUrl = (path: string, targetPostId?: string | null) => {
@@ -334,6 +355,7 @@ export const Splash = () => {
   const [targetPostBody, setTargetPostBody] = useState('');
   const [targetPostLoading, setTargetPostLoading] = useState(true);
   const [targetPostError, setTargetPostError] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<DashboardSectionId>('overview');
 
   const warningsCount = warnings.length;
   const lastWarning = warnings[0];
@@ -650,257 +672,301 @@ export const Splash = () => {
     addTimelineEvent('summary_generated', 'Moderation summary generated.', moderatorName);
   };
 
-  return (
-    <div className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex flex-col items-start gap-2">
-          <h1 className="text-5xl font-bold">RuleWatch</h1>
-          <p className="text-lg text-zinc-300">
-            Moderation case management dashboard
-          </p>
+  const renderOverviewContent = () => (
+    <div className="space-y-6">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Target Post</h2>
+          <span className="text-xs text-zinc-400">
+            {targetPostId ? `Post ID ${targetPostId}` : 'Unknown'}
+          </span>
         </div>
-
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Target Post</h2>
-            <span className="text-xs text-zinc-400">
-              {targetPostId ? `Post ID ${targetPostId}` : 'Unknown'}
-            </span>
+        {targetPostLoading ? (
+          <p className="text-sm text-zinc-400">Loading target post...</p>
+        ) : targetPostError ? (
+          <p className="text-sm text-yellow-300">{targetPostError}</p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm text-zinc-400">
+              Author: <span className="text-zinc-100">u/{targetPostAuthor}</span>
+            </p>
+            <p className="text-lg font-semibold">{targetPostTitle || 'Untitled'}</p>
+            <p className="text-sm text-zinc-300">
+              {targetPostBody
+                ? targetPostBody.length > 220
+                  ? `${targetPostBody.slice(0, 220)}...`
+                  : targetPostBody
+                : 'No post body provided.'}
+            </p>
           </div>
-          {targetPostLoading ? (
-            <p className="text-sm text-zinc-400">Loading target post...</p>
-          ) : targetPostError ? (
-            <p className="text-sm text-yellow-300">{targetPostError}</p>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-zinc-400">
-                Author: <span className="text-zinc-100">u/{targetPostAuthor}</span>
-              </p>
-              <p className="text-lg font-semibold">{targetPostTitle || 'Untitled'}</p>
-              <p className="text-sm text-zinc-300">
-                {targetPostBody
-                  ? targetPostBody.length > 220
-                    ? `${targetPostBody.slice(0, 220)}...`
-                    : targetPostBody
-                  : 'No post body provided.'}
-              </p>
-            </div>
-          )}
-        </div>
+        )}
+      </div>
 
-        <ProfileSearch
-          usernameInput={usernameInput}
-          onUsernameChange={setUsernameInput}
-          onSearch={handleProfileSearch}
-          onSelectUsername={handleUsernameSelect}
-          isLoading={profileLoading}
-          autoLoading={autoProfileLoading}
-          autoError={autoProfileError}
-          error={profileError}
-          profile={profile}
-          formatTimestamp={formatTimestamp}
-          getAccountAgeLabel={getAccountAgeLabel}
-        />
+      <ProfileSearch
+        usernameInput={usernameInput}
+        onUsernameChange={setUsernameInput}
+        onSearch={handleProfileSearch}
+        onSelectUsername={handleUsernameSelect}
+        isLoading={profileLoading}
+        autoLoading={autoProfileLoading}
+        autoError={autoProfileError}
+        error={profileError}
+        profile={profile}
+        formatTimestamp={formatTimestamp}
+        getAccountAgeLabel={getAccountAgeLabel}
+        showActivity={false}
+      />
 
-        <ModAssistant
-          warnings={warnings}
-          notes={notes}
-          profile={profile}
-          summary={modSummary}
-          scanResult={scanResult}
-          scanLoading={scanLoading}
-          scanError={scanError}
-          onGenerateSummary={handleGenerateSummary}
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <UserOverview
+          displayUsername={displayUsername}
+          accountAge={accountAge}
+          warningsCount={warningsCount}
+          totalKarma={totalKarma}
+          lastWarning={lastWarning}
+          riskStatus={riskStatus}
+          caseStatus={caseStatus}
+          isStatusLoading={isStatusLoading}
+          statusError={statusError}
+          onStatusChange={handleCaseStatusChange}
         />
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Scan Debug</h2>
-            <span className="text-xs text-zinc-400">Temporary</span>
+          <div className={`border rounded-2xl px-4 py-3 ${escalationStatus.style}`}>
+            <span className="text-sm uppercase tracking-wide text-zinc-300">
+              Escalation Status
+            </span>
+            <div className="text-lg font-semibold">{escalationStatus.label}</div>
           </div>
-          <div className="text-sm text-zinc-300">
-            <p>Scan exists: {scanResult ? 'Yes' : 'No'}</p>
-            <p>
-              Last scan timestamp:{' '}
-              {scanResult?.createdAt ? formatTimestamp(scanResult.createdAt) : 'N/A'}
-            </p>
-          </div>
-          <div className="bg-zinc-950/70 border border-zinc-800 rounded-xl p-4 text-xs text-zinc-200 overflow-auto max-h-72 whitespace-pre-wrap">
-            {scanResult ? JSON.stringify(scanResult, null, 2) : 'No scan payload.'}
-          </div>
-          {scanLoading ? (
-            <p className="text-xs text-zinc-400">Loading scan result...</p>
-          ) : null}
-          {scanError ? <p className="text-xs text-red-300">{scanError}</p> : null}
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div
-              className={`border rounded-2xl px-4 py-3 ${escalationStatus.style}`}
-            >
-              <span className="text-sm uppercase tracking-wide text-zinc-300">
-                Escalation Status
-              </span>
-              <div className="text-lg font-semibold">
-                {escalationStatus.label}
-              </div>
-            </div>
-            <button
-              className="bg-red-600/80 border border-red-500 text-white px-4 py-2 rounded-xl font-semibold hover:bg-red-600 transition"
-              onClick={handleClearCaseData}
-              disabled={isClearing}
-            >
-              {isClearing ? 'Clearing...' : 'Clear All Case Data'}
-            </button>
-          </div>
-          {clearSuccess ? (
-            <p className="text-sm text-green-300">{clearSuccess}</p>
-          ) : null}
-          {clearError ? (
-            <p className="text-sm text-red-300">{clearError}</p>
-          ) : null}
-          {isLoading ? (
-            <p className="text-sm text-zinc-400">Loading saved data...</p>
-          ) : null}
+          <button
+            className="bg-red-600/80 border border-red-500 text-white px-4 py-3 rounded-xl font-semibold hover:bg-red-600 transition"
+            onClick={handleClearCaseData}
+            disabled={isClearing}
+          >
+            {isClearing ? 'Clearing...' : 'Clear All Case Data'}
+          </button>
+          {clearSuccess ? <p className="text-sm text-green-300">{clearSuccess}</p> : null}
+          {clearError ? <p className="text-sm text-red-300">{clearError}</p> : null}
+          {isLoading ? <p className="text-sm text-zinc-400">Loading saved data...</p> : null}
           {!isLoading && loadError ? (
             <p className="text-sm text-red-300">{loadError}</p>
           ) : null}
         </div>
+      </div>
+    </div>
+  );
 
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <UserOverview
-            displayUsername={displayUsername}
-            accountAge={accountAge}
-            warningsCount={warningsCount}
-            totalKarma={totalKarma}
-            lastWarning={lastWarning}
-            riskStatus={riskStatus}
-            caseStatus={caseStatus}
-            isStatusLoading={isStatusLoading}
-            statusError={statusError}
-            onStatusChange={handleCaseStatusChange}
-          />
+  const renderAiContent = () => (
+    <div className="space-y-6">
+      <ModAssistant
+        warnings={warnings}
+        notes={notes}
+        profile={profile}
+        summary={modSummary}
+        scanResult={scanResult}
+        scanLoading={scanLoading}
+        scanError={scanError}
+        onGenerateSummary={handleGenerateSummary}
+      />
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
-            <div>
-              <h2 className="text-2xl font-semibold mb-2">Issue Warning</h2>
-              <p className="text-sm text-zinc-400">
-                Moderator: {moderatorName}
-              </p>
-            </div>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Scan Debug</h2>
+          <span className="text-xs text-zinc-400">Temporary</span>
+        </div>
+        <div className="text-sm text-zinc-300">
+          <p>Scan exists: {scanResult ? 'Yes' : 'No'}</p>
+          <p>
+            Last scan timestamp:{' '}
+            {scanResult?.createdAt ? formatTimestamp(scanResult.createdAt) : 'N/A'}
+          </p>
+        </div>
+        <div className="bg-zinc-950/70 border border-zinc-800 rounded-xl p-4 text-xs text-zinc-200 whitespace-pre-wrap break-words">
+          {scanResult ? JSON.stringify(scanResult, null, 2) : 'No scan payload.'}
+        </div>
+        {scanLoading ? <p className="text-xs text-zinc-400">Loading scan result...</p> : null}
+        {scanError ? <p className="text-xs text-red-300">{scanError}</p> : null}
+      </div>
+    </div>
+  );
 
-            <div className="bg-zinc-800 rounded-xl p-4">
-              <label className="block text-sm text-zinc-300 mb-2" htmlFor="reason">
-                Warning reason
-              </label>
-              <input
-                id="reason"
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="e.g. Rule 2: Personal attacks"
-                value={reasonInput}
-                onChange={(event) => setReasonInput(event.target.value)}
-              />
-              <div className="mt-3 flex flex-wrap gap-2">
-                {presetReasons.map((preset) => (
-                  <button
-                    key={preset}
-                    className="px-3 py-1 rounded-full text-xs bg-zinc-900 border border-zinc-700 text-zinc-200 hover:border-red-400 hover:text-white transition"
-                    onClick={() => handlePresetClick(preset)}
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
-            </div>
+  const renderActivityContent = () => (
+    <RecentActivity profile={profile} formatTimestamp={formatTimestamp} />
+  );
 
-            <div>
-              <p className="text-sm text-zinc-300 mb-2">Severity</p>
-              <div className="flex flex-wrap gap-2">
-                {severityOptions.map((severity) => (
-                  <button
-                    key={severity}
-                    className={`px-3 py-1 rounded-full border text-xs font-semibold transition ${
-                      severityStyles[severity]
-                    } ${
-                      selectedSeverity === severity
-                        ? 'ring-2 ring-white/20'
-                        : 'opacity-70 hover:opacity-100'
-                    }`}
-                    onClick={() => setSelectedSeverity(severity)}
-                  >
-                    {severity}
-                  </button>
-                ))}
-              </div>
-            </div>
+  const renderWarningsContent = () => (
+    <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <WarningHistory warnings={warnings} severityStyles={severityStyles} />
 
-            <button
-              className="bg-red-500 px-4 py-2 rounded-xl font-semibold hover:bg-red-600 transition"
-              onClick={handleWarnUser}
-            >
-              Warn User
-            </button>
-          </div>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold mb-2">Issue Warning</h2>
+          <p className="text-sm text-zinc-400">Moderator: {moderatorName}</p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <WarningHistory warnings={warnings} severityStyles={severityStyles} />
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-            <h3 className="text-xl font-semibold mb-4">Moderator Notes</h3>
-            <div className="bg-zinc-800 rounded-xl p-4 mb-4">
-              <label className="block text-sm text-zinc-300 mb-2" htmlFor="note">
-                Add a note
-              </label>
-              <textarea
-                id="note"
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-24"
-                placeholder="Add context for the mod team..."
-                value={noteInput}
-                onChange={(event) => setNoteInput(event.target.value)}
-              />
+        <div className="bg-zinc-800 rounded-xl p-4">
+          <label className="block text-sm text-zinc-300 mb-2" htmlFor="reason">
+            Warning reason
+          </label>
+          <input
+            id="reason"
+            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+            placeholder="e.g. Rule 2: Personal attacks"
+            value={reasonInput}
+            onChange={(event) => setReasonInput(event.target.value)}
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            {presetReasons.map((preset) => (
               <button
-                className="mt-3 bg-blue-500 px-4 py-2 rounded-xl font-semibold hover:bg-blue-600 transition"
-                onClick={handleAddNote}
+                key={preset}
+                className="px-3 py-1 rounded-full text-xs bg-zinc-900 border border-zinc-700 text-zinc-200 hover:border-red-400 hover:text-white transition"
+                onClick={() => handlePresetClick(preset)}
               >
-                Add Note
+                {preset}
               </button>
-            </div>
-
-            {notes.length === 0 ? (
-              <p className="text-zinc-400">No moderator notes yet.</p>
-            ) : (
-              <ul className="space-y-3">
-                {notes.map((note, index) => (
-                  <li
-                    key={`${note.timestamp}-${index}`}
-                    className="bg-zinc-800 rounded-xl p-4 flex flex-col gap-1"
-                  >
-                    <span className="text-sm text-zinc-400">
-                      {note.timestamp}
-                    </span>
-                    <span className="text-base font-medium">{note.note}</span>
-                    <span className="text-xs text-zinc-400">
-                      Added by {note.moderator}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            ))}
           </div>
         </div>
 
-        <div className="space-y-2">
-          {timelineError ? (
-            <p className="text-sm text-red-300">{timelineError}</p>
-          ) : null}
-          <Timeline
-            warnings={warnings}
-            notes={notes}
-            events={timelineEvents}
-            severityStyles={severityStyles}
-          />
+        <div>
+          <p className="text-sm text-zinc-300 mb-2">Severity</p>
+          <div className="flex flex-wrap gap-2">
+            {severityOptions.map((severity) => (
+              <button
+                key={severity}
+                className={`px-4 py-2 rounded-full border text-xs font-semibold transition ${
+                  severityStyles[severity]
+                } ${
+                  selectedSeverity === severity
+                    ? 'ring-2 ring-white/20'
+                    : 'opacity-70 hover:opacity-100'
+                }`}
+                onClick={() => setSelectedSeverity(severity)}
+              >
+                {severity}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          className="bg-red-500 px-4 py-3 rounded-xl font-semibold hover:bg-red-600 transition"
+          onClick={handleWarnUser}
+        >
+          Warn User
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderTimelineContent = () => (
+    <div className="space-y-2">
+      {timelineError ? <p className="text-sm text-red-300">{timelineError}</p> : null}
+      <Timeline
+        warnings={warnings}
+        notes={notes}
+        events={timelineEvents}
+        severityStyles={severityStyles}
+      />
+    </div>
+  );
+
+  const renderNotesContent = () => (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+      <h3 className="text-xl font-semibold mb-4">Moderator Notes</h3>
+      <div className="bg-zinc-800 rounded-xl p-4 mb-4">
+        <label className="block text-sm text-zinc-300 mb-2" htmlFor="note">
+          Add a note
+        </label>
+        <textarea
+          id="note"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-24"
+          placeholder="Add context for the mod team..."
+          value={noteInput}
+          onChange={(event) => setNoteInput(event.target.value)}
+        />
+        <button
+          className="mt-3 bg-blue-500 px-4 py-3 rounded-xl font-semibold hover:bg-blue-600 transition"
+          onClick={handleAddNote}
+        >
+          Add Note
+        </button>
+      </div>
+
+      {notes.length === 0 ? (
+        <p className="text-zinc-400">No moderator notes yet.</p>
+      ) : (
+        <ul className="space-y-3">
+          {notes.map((note, index) => (
+            <li
+              key={`${note.timestamp}-${index}`}
+              className="bg-zinc-800 rounded-xl p-4 flex flex-col gap-1"
+            >
+              <span className="text-sm text-zinc-400">{note.timestamp}</span>
+              <span className="text-base font-medium">{note.note}</span>
+              <span className="text-xs text-zinc-400">Added by {note.moderator}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  const renderSectionBody = (sectionId: DashboardSectionId) => {
+    switch (sectionId) {
+      case 'overview':
+        return renderOverviewContent();
+      case 'ai':
+        return renderAiContent();
+      case 'activity':
+        return renderActivityContent();
+      case 'warnings':
+        return renderWarningsContent();
+      case 'timeline':
+        return renderTimelineContent();
+      case 'notes':
+        return renderNotesContent();
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white p-6 pb-24">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div className="flex flex-col items-start gap-2">
+          <h1 className="text-4xl sm:text-5xl font-bold">RuleWatch</h1>
+          <p className="text-base sm:text-lg text-zinc-300">
+            Moderation case management dashboard
+          </p>
+        </div>
+
+        <MobileTabs
+          tabs={dashboardSections}
+          activeTab={activeSection}
+          onChange={(id) => setActiveSection(id as DashboardSectionId)}
+        />
+
+        <div className="space-y-4 lg:hidden">
+          {dashboardSections.map((section) => (
+            <CollapsibleSection
+              key={section.id}
+              title={section.label}
+              isOpen={activeSection === section.id}
+              onToggle={() => setActiveSection(section.id)}
+              renderContent={() => renderSectionBody(section.id)}
+            />
+          ))}
+        </div>
+
+        <div className="hidden lg:block space-y-6">
+          {dashboardSections.map((section) =>
+            section.id === activeSection ? (
+              <DashboardSection key={section.id} title={section.label}>
+                {renderSectionBody(section.id)}
+              </DashboardSection>
+            ) : null
+          )}
         </div>
       </div>
     </div>
