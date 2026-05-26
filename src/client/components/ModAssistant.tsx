@@ -91,7 +91,16 @@ const getRecommendation = (
   const activityItems = profile
     ? profile.recentPosts.length + profile.recentComments.length
     : 0;
-  const activityScore = clamp(activityItems * 12 + spamFrequency * 6);
+  const subredditPresence = profile?.subredditPresence ?? [];
+  const highRiskSubreddits = subredditPresence.filter(
+    (entry) => entry.riskLevel === 'High'
+  ).length;
+  const mediumRiskSubreddits = subredditPresence.filter(
+    (entry) => entry.riskLevel === 'Medium'
+  ).length;
+  const activityScore = clamp(
+    activityItems * 12 + spamFrequency * 6 + highRiskSubreddits * 8 + mediumRiskSubreddits * 4
+  );
 
   const agePenalty = accountAgeDays > 0 && accountAgeDays < 30 ? 12 : 0;
   const karmaPenalty = karma > 0 && karma < 100 ? 10 : 0;
@@ -99,12 +108,25 @@ const getRecommendation = (
   const toxicPenalty = toxicFrequency * 8;
 
   const rawScore =
-    warningScore + agePenalty + karmaPenalty + spamPenalty + toxicPenalty + activityScore / 4;
+    warningScore +
+    agePenalty +
+    karmaPenalty +
+    spamPenalty +
+    toxicPenalty +
+    activityScore / 4 +
+    highRiskSubreddits * 6 +
+    mediumRiskSubreddits * 3;
   const riskScore = clamp(Math.round(rawScore));
 
   const confidenceBase = profile ? 65 : 50;
   const confidence = clamp(
-    Math.round(confidenceBase + warnings.length * 3 + activityItems * 2)
+    Math.round(
+      confidenceBase +
+        warnings.length * 3 +
+        activityItems * 2 +
+        highRiskSubreddits * 4 +
+        mediumRiskSubreddits * 2
+    )
   );
 
   let action: Recommendation['action'] = 'No Action';
@@ -130,6 +152,21 @@ const buildSummaryReport = (
   profile: UserProfile | null,
   recommendation: Recommendation
 ) => {
+  const presence = profile?.subredditPresence ?? [];
+  const topCommunities = presence.slice(0, 3).map((entry) => {
+    const label = `r/${entry.subredditName}`;
+    return `${label} (${entry.activityCount})`;
+  });
+  const highRiskCommunities = presence.filter((entry) => entry.riskLevel === 'High');
+  const cryptoPresence = presence.some((entry) =>
+    entry.subredditName.toLowerCase().includes('crypto')
+  );
+  const riskCommunitySummary = highRiskCommunities.length
+    ? `High-risk communities: ${highRiskCommunities
+        .slice(0, 3)
+        .map((entry) => `r/${entry.subredditName}`)
+        .join(', ')}`
+    : 'No high-risk communities detected.';
   const accountOverview = profile
     ? `User: u/${profile.username}\nAccount Age: ${profile.createdAt}\nKarma: ${profile.totalKarma}`
     : 'User profile not loaded.';
@@ -137,6 +174,19 @@ const buildSummaryReport = (
   const riskFindings = `Risk Score: ${recommendation.riskScore}/100\nConfidence: ${recommendation.confidence}%\nRecommended Action: ${recommendation.action}`;
 
   const suspiciousActivity = `Spam keyword hits: ${recommendation.spamFrequency}\nToxic keyword hits: ${recommendation.toxicFrequency}\nRecent activity score: ${recommendation.activityScore}/100`;
+
+  const presenceSummary = presence.length
+    ? [
+        `Top communities: ${topCommunities.join(', ')}`,
+        `Unique communities: ${presence.length}`,
+        riskCommunitySummary,
+        cryptoPresence
+          ? 'User frequently participates in crypto promotion subreddits.'
+          : null,
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : 'No subreddit presence data available.';
 
   const warningSummary = warnings.length
     ? warnings
@@ -154,6 +204,9 @@ const buildSummaryReport = (
     '',
     'Risk Findings',
     riskFindings,
+    '',
+    'Subreddit Presence',
+    presenceSummary,
     '',
     'Suspicious Activity',
     suspiciousActivity,

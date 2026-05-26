@@ -364,6 +364,8 @@ export const Splash = () => {
         setNotes(savedNotes);
         setCaseStatus(savedStatus);
         setTimelineEvents(savedTimeline);
+
+        return savedTimeline;
       } catch (error) {
         if (isMounted) {
           const message =
@@ -372,6 +374,8 @@ export const Splash = () => {
           setStatusError(message);
           setTimelineError(message);
         }
+
+        return [] as TimelineEvent[];
       }
     };
 
@@ -397,12 +401,24 @@ export const Splash = () => {
           setUsernameInput(author);
         }
 
-        await loadCaseData(target.postId);
+        const savedTimeline = await loadCaseData(target.postId);
 
         if (author) {
           const loadedProfile = await loadUserProfileFromApi(author);
           if (isMounted) {
             setProfile(loadedProfile);
+          }
+          const presenceEventExists = savedTimeline.some(
+            (event) => event.type === 'subreddit_presence_completed'
+          );
+          if (!presenceEventExists) {
+            const presenceEvent = createTimelineEvent(
+              'subreddit_presence_completed',
+              'Subreddit presence analysis completed.',
+              'RuleWatch AI'
+            );
+            setTimelineEvents((prev) => [presenceEvent, ...prev]);
+            await appendTimelineEventToApi(presenceEvent, target.postId);
           }
         } else if (isMounted) {
           setAutoProfileError('Current author not found');
@@ -525,6 +541,19 @@ export const Splash = () => {
     });
   };
 
+  const logPresenceEventIfNeeded = () => {
+    const hasPresenceEvent = timelineEvents.some(
+      (event) => event.type === 'subreddit_presence_completed'
+    );
+    if (!hasPresenceEvent) {
+      addTimelineEvent(
+        'subreddit_presence_completed',
+        'Subreddit presence analysis completed.',
+        'RuleWatch AI'
+      );
+    }
+  };
+
   const handleClearCaseData = async () => {
     setIsClearing(true);
     setClearError(null);
@@ -566,6 +595,7 @@ export const Splash = () => {
     try {
       const loadedProfile = await loadUserProfileFromApi(trimmed);
       setProfile(loadedProfile);
+      logPresenceEventIfNeeded();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to load user profile';
@@ -589,6 +619,7 @@ export const Splash = () => {
     try {
       const loadedProfile = await loadUserProfileFromApi(normalized);
       setProfile(loadedProfile);
+      logPresenceEventIfNeeded();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to load user profile';

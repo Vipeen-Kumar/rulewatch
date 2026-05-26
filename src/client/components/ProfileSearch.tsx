@@ -1,6 +1,7 @@
 import { useEffect, useRef, type FormEvent } from 'react';
 import type { UserProfile } from '../../shared/api';
 import { useUserAutocomplete } from '../hooks/useUserAutocomplete';
+import { SubredditPresenceCard } from './SubredditPresence';
 
 type ProfileSearchProps = {
   usernameInput: string;
@@ -286,28 +287,29 @@ export const ProfileSearch = ({
                 )}
               </div>
             </div>
+            <SubredditPresenceCard presence={profile.subredditPresence ?? []} />
+          </div>
 
-            <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 space-y-3">
-              <h3 className="text-lg font-semibold">Recent Posts</h3>
-              {profile.recentPosts.length === 0 ? (
-                <p className="text-sm text-zinc-400">No recent posts found.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {profile.recentPosts.map((post) => (
-                    <li
-                      key={post.id}
-                      className="border border-zinc-700 rounded-lg p-3"
-                    >
-                      <p className="text-sm font-semibold">{post.title}</p>
-                      <p className="text-xs text-zinc-400">
-                        r/{post.subredditName} · {formatTimestamp(post.createdAt)}
-                      </p>
-                      <p className="text-xs text-zinc-400">Score: {post.score}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 space-y-3">
+            <h3 className="text-lg font-semibold">Recent Posts</h3>
+            {profile.recentPosts.length === 0 ? (
+              <p className="text-sm text-zinc-400">No recent posts found.</p>
+            ) : (
+              <ul className="space-y-2">
+                {profile.recentPosts.map((post) => (
+                  <li
+                    key={post.id}
+                    className="border border-zinc-700 rounded-lg p-3"
+                  >
+                    <p className="text-sm font-semibold">{post.title}</p>
+                    <p className="text-xs text-zinc-400">
+                      r/{post.subredditName} · {formatTimestamp(post.createdAt)}
+                    </p>
+                    <p className="text-xs text-zinc-400">Score: {post.score}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 space-y-3">

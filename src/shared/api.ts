@@ -17,7 +17,8 @@ export type TimelineEventType =
   | 'case_cleared'
   | 'status_changed'
   | 'summary_generated'
-  | 'scan_completed';
+  | 'scan_completed'
+  | 'subreddit_presence_completed';
 
 export type TimelineEvent = {
   id: string;
@@ -129,6 +130,14 @@ export type UserRiskAnalysis = {
   suspiciousPatterns: string[];
 };
 
+export type SubredditPresence = {
+  subredditName: string;
+  activityCount: number;
+  posts: number;
+  comments: number;
+  riskLevel: RiskLevel;
+};
+
 export type UserProfile = {
   username: string;
   createdAt: string;
@@ -137,6 +146,7 @@ export type UserProfile = {
   totalKarma: number;
   recentPosts: RecentPost[];
   recentComments: RecentComment[];
+  subredditPresence: SubredditPresence[];
   risk: UserRiskAnalysis;
 };
 

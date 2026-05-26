@@ -3,6 +3,7 @@ import type {
   RecentComment,
   RecentPost,
   RiskLevel,
+  SubredditPresence,
   UserProfile,
   UserRiskAnalysis,
 } from '../../shared/api';
@@ -20,6 +21,28 @@ const spamKeywords = [
 
 const toxicKeywords = ['idiot', 'stupid', 'trash', 'hate', 'kill'];
 
+const highRiskSubredditPatterns = [
+  'free karma',
+  'freekarma',
+  'crypto',
+  'airdrop',
+  'giveaway',
+  'nsfw',
+  'onlyfans',
+  'bot',
+  'farm',
+  'shill',
+  'promo',
+];
+
+const mediumRiskSubredditPatterns = [
+  'meme',
+  'selfpromo',
+  'self promo',
+  'advertise',
+  'marketing',
+];
+
 const normalizeUsername = (username: string) =>
   username.replace(/^u\//i, '').trim();
 
@@ -34,6 +57,68 @@ const countKeywordHits = (text: string, keywords: string[]) => {
     }
     return count;
   }, 0);
+};
+
+const getSubredditRiskLevel = (subredditName: string): RiskLevel => {
+  const lowered = subredditName.toLowerCase();
+  if (highRiskSubredditPatterns.some((pattern) => lowered.includes(pattern))) {
+    return 'High';
+  }
+  if (mediumRiskSubredditPatterns.some((pattern) => lowered.includes(pattern))) {
+    return 'Medium';
+  }
+  return 'Low';
+};
+
+const buildSubredditPresence = (
+  posts: RecentPost[],
+  comments: RecentComment[]
+): SubredditPresence[] => {
+  const presenceMap = new Map<
+    string,
+    { subredditName: string; posts: number; comments: number }
+  >();
+
+  posts.forEach((post) => {
+    const key = post.subredditName.toLowerCase();
+    const existing = presenceMap.get(key);
+    if (existing) {
+      existing.posts += 1;
+    } else {
+      presenceMap.set(key, {
+        subredditName: post.subredditName,
+        posts: 1,
+        comments: 0,
+      });
+    }
+  });
+
+  comments.forEach((comment) => {
+    const key = comment.subredditName.toLowerCase();
+    const existing = presenceMap.get(key);
+    if (existing) {
+      existing.comments += 1;
+    } else {
+      presenceMap.set(key, {
+        subredditName: comment.subredditName,
+        posts: 0,
+        comments: 1,
+      });
+    }
+  });
+
+  return Array.from(presenceMap.values())
+    .map((entry) => {
+      const activityCount = entry.posts + entry.comments;
+      return {
+        subredditName: entry.subredditName,
+        activityCount,
+        posts: entry.posts,
+        comments: entry.comments,
+        riskLevel: getSubredditRiskLevel(entry.subredditName),
+      };
+    })
+    .sort((a, b) => b.activityCount - a.activityCount);
 };
 
 const toRecentPost = (post: {
@@ -79,7 +164,8 @@ const toRecentComment = (comment: {
 // Basic heuristic scoring using recent content only.
 const buildRiskAnalysis = (
   posts: RecentPost[],
-  comments: RecentComment[]
+  comments: RecentComment[],
+  subredditPresence: SubredditPresence[]
 ): UserRiskAnalysis => {
   let spamPostCount = 0;
   let toxicHits = 0;
@@ -113,6 +199,9 @@ const buildRiskAnalysis = (
     toxicHits >= 3 ? 'High' : toxicHits >= 1 ? 'Medium' : 'Low';
 
   const suspiciousPatterns: string[] = [];
+  const highRiskSubreddits = subredditPresence.filter(
+    (entry) => entry.riskLevel === 'High'
+  ).length;
   if (spamPostCount >= 2) {
     suspiciousPatterns.push('Repeated spam-like posts or comments detected.');
   }
@@ -121,6 +210,11 @@ const buildRiskAnalysis = (
   }
   if (toxicHits >= 1) {
     suspiciousPatterns.push('Toxic keywords detected in recent activity.');
+  }
+  if (highRiskSubreddits >= 2) {
+    suspiciousPatterns.push('Active in multiple high-risk promotional subreddits.');
+  } else if (highRiskSubreddits === 1) {
+    suspiciousPatterns.push('Participation in a high-risk promotional subreddit.');
   }
 
   const banRecommendation =
@@ -186,7 +280,9 @@ export const fetchUserProfile = async (
     })
   );
 
-  const risk = buildRiskAnalysis(recentPosts, recentComments);
+  const subredditPresence = buildSubredditPresence(recentPosts, recentComments);
+
+  const risk = buildRiskAnalysis(recentPosts, recentComments, subredditPresence);
 
   return {
     username: user.username,
@@ -196,6 +292,7 @@ export const fetchUserProfile = async (
     totalKarma: user.linkKarma + user.commentKarma,
     recentPosts,
     recentComments,
+    subredditPresence,
     risk,
   };
 };
